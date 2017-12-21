@@ -35,6 +35,7 @@ from nupic.frameworks.opf.prediction_metrics_manager import MetricsManager
 from nupic.frameworks.opf import metrics
 # from htmresearch.frameworks.opf.clamodel_custom import CLAModel_custom
 import nupic_output
+from tqdm import tqdm
 
 
 import numpy as np
@@ -52,6 +53,8 @@ plt.ion()
 
 DATA_DIR = "./data"
 MODEL_PARAMS_DIR = "./model_params"
+
+skipCount = 0
 
 
 def getMetricSpecs(predictedField, stepsAhead=5):
@@ -79,6 +82,8 @@ def getModelParamsFromName(dataSet):
           dataSet == "nyc_taxi_perturb" or
           dataSet == "nyc_taxi_perturb_baseline"):
     importedModelParams = yaml.safe_load(open('model_params/nyc_taxi_model_params.yaml'))
+  elif "sunspot" in dataSet:
+    importedModelParams = yaml.safe_load(open('model_params/sunspot.yaml'))
   else:
     raise Exception("No model params exist for {}".format(dataSet))
 
@@ -122,11 +127,17 @@ def _getArgs():
 
 
 def getInputRecord(df, predictedField, i):
-  inputRecord = {
-    predictedField: float(df[predictedField][i]),
-    "timeofday": float(df["timeofday"][i]),
-    "dayofweek": float(df["dayofweek"][i]),
-  }
+  if "nyc" in dataSet:
+    inputRecord = {
+      predictedField: float(df[predictedField][i]),
+      "timeofday": float(df["timeofday"][i]),
+      "dayofweek": float(df["dayofweek"][i]),
+    }
+  elif "sunspot" in dataSet:
+    inputRecord = {
+      predictedField: float(df[predictedField][i]),
+      "incr": float(df["incr"][i])
+    }
   return inputRecord
 
 
@@ -212,11 +223,14 @@ if __name__ == "__main__":
   elif dataSet == "nyc_taxi" or dataSet == "nyc_taxi_perturb" or dataSet =="nyc_taxi_perturb_baseline":
     DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
     predictedField = "passenger_count"
+  elif  "sunspot" in dataSet:
+    DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
+    predictedField = "spots"
   else:
     raise RuntimeError("un recognized dataset")
 
   modelParams = getModelParamsFromName(dataSet)
-  
+
   modelParams['modelParams']['clParams']['steps'] = str(_options.stepsAhead)
   modelParams['modelParams']['clParams']['regionName'] = classifierType
 
@@ -258,8 +272,8 @@ if __name__ == "__main__":
     plt.ion()
 
   print "Load dataset: ", dataSet
-  df = pd.read_csv(inputData, header=0, skiprows=[1, 2])
-
+  skips = [1,2] if "nyc" in dataSet else [1,]
+  df = pd.read_csv(inputData, header=0, skiprows=skips)
   nMultiplePass = 5
   nTrain = 5000
   print " run SP through the first %i samples %i passes " %(nMultiplePass, nTrain)
@@ -286,8 +300,8 @@ if __name__ == "__main__":
   spActiveCellsCount = np.zeros(sp.getColumnDimensions())
 
   output = nupic_output.NuPICFileOutput([dataSet])
-
-  for i in xrange(len(df)):
+  skips = 0
+  for i in tqdm(xrange(len(df))):
     inputRecord = getInputRecord(df, predictedField, i)
     tp = model._getTPRegion()
     tm = tp.getSelf()._tfdr
@@ -398,7 +412,7 @@ if __name__ == "__main__":
       plt.figure(2)
       plt.clf()
       plt.imshow(likelihood_display,
-                 extent=(time_step_display[0], time_step_display[-1], 0, 40000),
+                 extent=(time_step_display[0], time_step_display[-1], -2, 40000),
                  interpolation='nearest', aspect='auto',
                  origin='lower', cmap='Reds')
       plt.colorbar()
@@ -408,10 +422,11 @@ if __name__ == "__main__":
       plt.xlabel('Time')
       plt.ylabel('Prediction')
       # plt.title('TM, useTimeOfDay='+str(True)+' '+dataSet+' test neg LL = '+str(np.nanmean(negLL)))
-      plt.xlim([17020, 17300])
+      plt.xlim([14000, 15000])
       plt.ylim([0, 30000])
       plt.clim([0, 1])
       plt.draw()
+      plt.show(block=True)
 
   predData_TM_n_step = np.roll(np.array(predict_data_ML), _options.stepsAhead)
   nTest = len(actual_data) - nTrain - _options.stepsAhead
@@ -425,7 +440,7 @@ if __name__ == "__main__":
   truth = np.roll(actual_data, -5)
 
   from nupic.encoders.scalar import ScalarEncoder as NupicScalarEncoder
-  encoder = NupicScalarEncoder(w=1, minval=0, maxval=40000, n=22, forced=True)
+  encoder = NupicScalarEncoder(w=1, minval=-2, maxval=40000, n=22, forced=True)
   from plot import computeLikelihood, plotAccuracy
 
   bucketIndex2 = []
@@ -433,6 +448,8 @@ if __name__ == "__main__":
   minProb = 0.0001
   for i in xrange(len(truth)):
     bucketIndex2.append(np.where(encoder.encode(truth[i]))[0])
+    print encoder.encode(truth[i])
+    exit(1)
     outOfBucketProb = 1 - sum(predictions[i,:])
     prob = predictions[i, bucketIndex2[i]]
     if prob == 0:

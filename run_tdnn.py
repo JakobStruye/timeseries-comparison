@@ -235,7 +235,7 @@ if __name__ == "__main__":
   plt.plot(predictedInput)
   plt.xlim([12800, 13500])
   plt.ylim([0, 30000])
-
+  plt.show()
   skipTrain = 6000
   from plot import computeSquareDeviation
   squareDeviation = computeSquareDeviation(predictedInput, targetInput)

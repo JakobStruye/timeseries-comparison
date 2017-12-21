@@ -26,7 +26,7 @@ import importlib
 from optparse import OptionParser
 from nupic.swarming import permutations_runner
 import pandas as pd
-from nupic.swarming.exp_generator.ExpGenerator import expGenerator
+from nupic.swarming.exp_generator.experiment_generator import expGenerator
 import json
 
 class SwarmRunner():

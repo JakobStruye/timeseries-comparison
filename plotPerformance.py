@@ -39,7 +39,7 @@ plt.ion()
 plt.close('all')
 
 window = 960
-skipTrain = 10000
+skipTrain = 3000
 figPath = './result/'
 
 def getDatetimeAxis():
@@ -70,7 +70,7 @@ def computeNRMSE(truth, prediction, startFrom=0):
 def loadExperimentResult(filePath):
   expResult = pd.read_csv(filePath, header=0, skiprows=[1, 2],
                             names=['step', 'value', 'prediction5'])
-  groundTruth = np.roll(expResult['value'], -5)
+  groundTruth = np.roll(expResult['value'], 0)
   prediction5step = np.array(expResult['prediction5'])
   return (groundTruth, prediction5step)
 
@@ -82,15 +82,15 @@ if __name__ == "__main__":
     'results/nyc_taxi_experiment_continuous/learning_window6001.0/')
 
   # ### Figure 1: Continuous vs Batch LSTM
-  # fig = plt.figure()
-  # # NRMSE_StaticLSTM = plotLSTMresult('results/nyc_taxi_experiment_one_shot/',
-  # #                                   window, xaxis=xaxis_datetime, label='static lstm')
-  # (nrmseLSTM6000, expResultLSTM6000) = \
-  #   plotLSTMresult('results/nyc_taxi_experiment_continuous/learning_window6001.0/',
-  #                  window, xaxis=xaxisDate, label='continuous LSTM-6000')
-  # plt.legend()
-  # plt.savefig(figPath + 'continuousVsbatch.pdf')
-  #
+  fig = plt.figure()
+  # NRMSE_StaticLSTM = plotLSTMresult('results/nyc_taxi_experiment_one_shot/',
+  #                                   window, xaxis=xaxis_datetime, label='static lstm')
+  (nrmseLSTM6000, expResultLSTM6000) = \
+    plotLSTMresult('results/nyc_taxi_experiment_continuous/learning_window6001.0/',
+                   window, xaxis=xaxisDate, label='continuous LSTM-6000')
+  plt.legend()
+  plt.savefig(figPath + 'continuousVsbatch.pdf')
+
 
   ### Figure 2: Continuous LSTM with different window size
 
@@ -115,15 +115,14 @@ if __name__ == "__main__":
   filePath = './prediction/' + dataSet + '_TM_pred.csv'
 
   (tmTruth, tmPrediction) = loadExperimentResult('./prediction/' + dataSet + '_TM_pred.csv')
-
+  tmTruth = np.roll(tmTruth, -5)
   squareDeviation = computeSquareDeviation(tmPrediction, tmTruth)
   squareDeviation[:skipTrain] = None
-
   nrmseTM = plotAccuracy((squareDeviation, xaxisDate),
-                         tmTruth,
-                         window=window,
-                         errorType='square_deviation',
-                         label='TM')
+                          tmTruth,
+                          window=window,
+                          errorType='square_deviation',
+                          label='TM', skipRecordNum=skipTrain)
 
 
   (esnTruth, esnPrediction) = loadExperimentResult('./prediction/' + dataSet + '_esn_online_pred.csv')
@@ -179,6 +178,15 @@ if __name__ == "__main__":
                           errorType='square_deviation',
                           label='TDNN')
 
+  (delayTruth, delayPrediction) = loadExperimentResult('./prediction/' + dataSet + '_gru_pred.csv')
+  squareDeviation = computeSquareDeviation(delayTruth, delayPrediction)
+  squareDeviation[:skipTrain] = None
+  nrmseDELAY = plotAccuracy((squareDeviation, xaxisDate),
+                          delayTruth,
+                          window=window,
+                          errorType='square_deviation',
+                          label='GRU', skipRecordNum=skipTrain)
+
 
   (elmTruth, elmPrediction) = loadExperimentResult('./prediction/' + dataSet + '_elm_pred.csv')
   squareDeviation = computeSquareDeviation(elmPrediction, elmTruth)
@@ -190,7 +198,7 @@ if __name__ == "__main__":
                           label='Extreme Learning Machine')
 
 
-  shiftPrediction = np.roll(tmTruth, 5).astype('float32')
+  shiftPrediction = np.roll(tmTruth, -5).astype('float32')
   squareDeviation = computeSquareDeviation(shiftPrediction, tmTruth)
   squareDeviation[:skipTrain] = None
   nrmseShift = plotAccuracy((squareDeviation, xaxisDate),
@@ -198,43 +206,56 @@ if __name__ == "__main__":
                             window=window,
                             errorType='square_deviation',
                             label='Shift')
-
   plt.legend()
   plt.savefig(figPath + 'continuous.pdf')
 
-
   ### Figure 3: Continuous LSTM with different window size using the likelihood metric
 
-  # fig = plt.figure()
-  # # negLL_StaticLSTM = \
-  # #   plotLSTMresult('results/nyc_taxi_experiment_one_shot_likelihood/',
-  # #                window, xaxis=xaxis_datetime, label='static LSTM ')
-  #
-  # plt.clf()
-  # (negLLLSTM1000, expResultLSTM1000negLL) = \
-  #   plotLSTMresult('results/nyc_taxi_experiment_continuous_likelihood/learning_window1001.0/',
-  #                  window, xaxis=xaxisDate, label='continuous LSTM-1000')
-  #
-  # (negLLLSTM3000, expResultLSTM3000negLL) = \
-  #   plotLSTMresult('results/nyc_taxi_experiment_continuous_likelihood/learning_window3001.0/',
-  #                  window, xaxis=xaxisDate, label='continuous LSTM-3000')
-  #
-  # (negLLLSTM6000, expResultLSTM6000negLL) = \
-  #   plotLSTMresult('results/nyc_taxi_experiment_continuous_likelihood/learning_window6001.0/',
-  #                  window, xaxis=xaxisDate, label='continuous LSTM-6000')
-  #
-  # dataSet = 'nyc_taxi'
-  # tm_prediction = np.load('./result/'+dataSet+'TMprediction.npy')
-  # tmTruth = np.load('./result/' + dataSet + 'TMtruth.npy')
-  #
-  # encoder = NupicScalarEncoder(w=1, minval=0, maxval=40000, n=22, forced=True)
-  # negLL = computeLikelihood(tm_prediction, tmTruth, encoder)
-  # negLL[:skipTrain] = None
-  # negLLTM = plotAccuracy((negLL, xaxisDate), tmTruth,
-  #                        window=window, errorType='negLL', label='TM')
-  # plt.legend()
-  # plt.savefig(figPath + 'continuous_likelihood.pdf')
+  fig = plt.figure()
+  # negLL_StaticLSTM = \
+  #   plotLSTMresult('results/nyc_taxi_experiment_one_shot_likelihood/',
+  #                window, xaxis=xaxis_datetime, label='static LSTM ')
 
+  plt.clf()
+  (negLLLSTM1000, expResultLSTM1000negLL) = \
+    plotLSTMresult('results/nyc_taxi_experiment_continuous_likelihood/learning_window1001.0/',
+                   window, xaxis=xaxisDate, label='continuous LSTM-1000')
+
+  (negLLLSTM3000, expResultLSTM3000negLL) = \
+    plotLSTMresult('results/nyc_taxi_experiment_continuous_likelihood/learning_window3001.0/',
+                   window, xaxis=xaxisDate, label='continuous LSTM-3000')
+
+  (negLLLSTM6000, expResultLSTM6000negLL) = \
+    plotLSTMresult('results/nyc_taxi_experiment_continuous_likelihood/learning_window6001.0/',
+                   window, xaxis=xaxisDate, label='continuous LSTM-6000')
+
+  dataSet = 'nyc_taxi'
+  tm_prediction = np.load('./result/'+dataSet+'TMprediction.npy')
+  tmTruth = np.load('./result/' + dataSet + 'TMtruth.npy')
+
+  encoder = NupicScalarEncoder(w=1, minval=0, maxval=40000, n=22, forced=True)
+  negLL = computeLikelihood(tm_prediction, tmTruth, encoder)
+  negLL[:skipTrain] = None
+  negLLTM = plotAccuracy((negLL, xaxisDate), tmTruth,
+                         window=window, errorType='negLL', label='TM')
+  plt.legend()
+  plt.savefig(figPath + 'continuous_likelihood.pdf')
+
+  negLL = computeLikelihood(tm_prediction, tmTruth, encoder)
+  negLL[:skipTrain] = None
+  negLLTM = plotAccuracy((negLL, xaxisDate), tmTruth,
+                         window=window, errorType='negLL', label='TM')
+
+  negLLDELAY = computeSquareDeviation(delayPrediction, delayTruth)
+  negLLDELAY[:skipTrain] = np.nan
+
+  negLLDELAY = plotAccuracy((negLLDELAY, xaxisDate),
+               delayTruth,
+               # train=expResult.train,
+               window=window,
+               label='GRU',
+               params=None,
+               errorType='square_deviation')
 
   ### Figure 4: Continuous LSTM with different window size using the likelihood metric
 
@@ -268,7 +289,6 @@ if __name__ == "__main__":
   plt.legend()
   plt.savefig(figPath + 'continuous_likelihood.pdf')
 
-
   startFrom = skipTrain
   altMAPELSTM6000 = computeAltMAPE(expResultLSTM6000.truth, expResultLSTM6000.predictions, startFrom)
   altMAPELSTM3000 = computeAltMAPE(expResultLSTM3000.truth, expResultLSTM3000.predictions, startFrom)
@@ -282,6 +302,8 @@ if __name__ == "__main__":
   altMAPEAdaptiveFilter = computeAltMAPE(tmTruth, adaptiveFilterPrediction, startFrom)
   altMAPEELM = computeAltMAPE(elmTruth, elmPrediction, startFrom)
   altMAPETDNN = computeAltMAPE(tdnnTruth, tdnnPrediction, startFrom)
+  altMAPEDELAY = computeAltMAPE(delayTruth, delayPrediction, startFrom)
+
 
   truth = tmTruth
   nrmseShiftMean = np.sqrt(np.nanmean(nrmseShift)) / np.nanstd(truth)
@@ -295,70 +317,89 @@ if __name__ == "__main__":
   nrmseLSTM3000mean = np.sqrt(np.nanmean(nrmseLSTM3000)) / np.nanstd(truth)
   nrmseLSTM6000mean = np.sqrt(np.nanmean(nrmseLSTM6000)) / np.nanstd(truth)
   nrmseLSTMonlinemean = np.sqrt(np.nanmean(nrmseLSTMonline)) / np.nanstd(truth)
+  nrmseDELAYmean = np.sqrt(np.nanmean(nrmseDELAY)) / np.nanstd(truth)
 
 
-  fig, ax = plt.subplots(nrows=1, ncols=3)
-  inds = np.arange(9)
+
+  fig, ax = plt.subplots(nrows=1, ncols=2)
+  inds = np.arange(9) #MODIFIED
   ax1 = ax[0]
   width = 0.5
   ax1.bar(inds, [nrmseARIMAmean,
                  nrmseELMmean,
                  nrmseTDNNmean,
                  nrmseESNmean,
-                 nrmseLSTMonlinemean,
+                 #nrmseLSTMonlinemean,
                  nrmseLSTM1000mean,
                  nrmseLSTM3000mean,
                  nrmseLSTM6000mean,
-                 nrmseTMmean], width=width)
+                 nrmseTMmean,nrmseDELAYmean], width=width)
   ax1.set_xticks(inds+width/2)
   ax1.set_ylabel('NRMSE')
   ax1.set_xlim([inds[0]-width*.6, inds[-1]+width*1.4])
-  ax1.set_xticklabels( ('ARIMA', 'ELM',  'TDNN', 'ESN', 'LSTM-online',
-                        'LSTM1000', 'LSTM3000', 'LSTM6000', 'HTM') )
+  ax1.set_xticklabels( ('ARIMA', 'ELM',  'TDNN', 'ESN',
+                        'LSTM1000', 'LSTM3000', 'LSTM6000', 'HTM', 'GRU') )
   for tick in ax1.xaxis.get_major_ticks():
     tick.label.set_rotation('vertical')
+
+  rects = ax1.patches
+
+  # Now make some labels
+  labels = ["label%d" % i for i in xrange(len(rects))]
+
+  for rect, label in zip(rects, labels):
+      height = rect.get_height()
+      ax1.text(rect.get_x() + rect.get_width() / 2, height + 5, label, ha='center', va='bottom')
 
   ax3 = ax[1]
   ax3.bar(inds, [altMAPEARIMA,
                  altMAPEELM,
                  altMAPETDNN,
                  altMAPEESN,
-                 altMAPELSTMonline,
+                 #altMAPELSTMonline,
                  altMAPELSTM1000,
                  altMAPELSTM3000,
                  altMAPELSTM6000,
-                 altMAPETM], width=width, color='b')
+                 altMAPETM,altMAPEDELAY], width=width, color='b')
   ax3.set_xticks(inds+width/2)
   ax3.set_xlim([inds[0]-width*.6, inds[-1]+width*1.4])
   ax3.set_ylabel('MAPE')
-  ax3.set_xticklabels( ('ARIMA', 'ELM', 'TDNN', 'ESN', 'LSTM-online',
-                        'LSTM1000', 'LSTM3000', 'LSTM6000', 'HTM') )
+  ax3.set_xticklabels( ('ARIMA', 'ELM', 'TDNN', 'ESN',
+                        'LSTM1000', 'LSTM3000', 'LSTM6000', 'HTM', 'GRU') )
   ax3.set_title('Fig. 10B')
   for tick in ax3.xaxis.get_major_ticks():
     tick.label.set_rotation('vertical')
 
-  ax2 = ax[2]
-  ax2.set_ylabel('Negative Log-likelihood')
-  ax2.bar(inds, [np.nanmean(negLLLSTMOnline),
-                 np.nanmean(negLLLSTM1000),
-                 np.nanmean(negLLLSTM3000),
-                 np.nanmean(negLLLSTM6000),
-                 np.nanmean(negLLTM), 0, 0, 0, 0], width=width, color='b')
-  ax2.set_xticks(inds+width/2)
-  ax2.set_xlim([inds[0]-width*.6, inds[-1]+width*1.4])
-  ax2.set_ylim([0, 2.0])
-  ax2.set_xticklabels(('LSTM-online', 'LSTM1000', 'LSTM3000', 'LSTM6000',
-                       'HTM', '', '', ''))
-  ax2.set_title('Fig. 10C')
-  for tick in ax2.xaxis.get_major_ticks():
-    tick.label.set_rotation('vertical')
+  # ax2 = ax[2]
+  # inds = np.arange(9) #MODIFIED
+  # ax2.set_ylabel('Negative Log-likelihood')
+  # ax2.bar(inds, [#np.nanmean(negLLLSTMOnline),
+  #                np.nanmean(negLLLSTM1000),
+  #                np.nanmean(negLLLSTM3000),
+  #                np.nanmean(negLLLSTM6000),
+  #                np.nanmean(negLLTM),
+  #                np.nanmean(negLLDELAY),
+  #                0,
+  #                0,
+  #                0,
+  #                0
+  #                ], width=width, color='b')
+  # ax2.set_xticks(inds+width/2)
+  # ax2.set_xlim([inds[0]-width*.6, inds[-1]+width*1.4])
+  # ax2.set_ylim([0, 2.0])
+  # ax2.set_xticklabels(('LSTM1000', 'LSTM3000', 'LSTM6000',
+  #                      'HTM', 'GRU' '', '', ''))
+  # ax2.set_title('Fig. 10C')
+  # for tick in ax2.xaxis.get_major_ticks():
+  #   tick.label.set_rotation('vertical')
 
   plt.savefig(figPath + 'model_performance_summary_alternative.pdf')
-
+  plt.show(block=True)
+  exit(1)
 
 
   fig, ax = plt.subplots(nrows=1, ncols=3)
-  inds = np.arange(6)
+  inds = np.arange(7)
   ax1 = ax[0]
   width = 0.5
   ax1.bar(inds, [nrmseELMmean,
@@ -366,12 +407,12 @@ if __name__ == "__main__":
                  nrmseLSTM1000mean,
                  nrmseLSTM3000mean,
                  nrmseLSTM6000mean,
-                 nrmseTMmean], width=width)
+                 nrmseTMmean, nrmseDELAYmean], width=width)
   ax1.set_xticks(inds+width/2)
   ax1.set_ylabel('NRMSE')
   ax1.set_xlim([inds[0]-width*.6, inds[-1]+width*1.4])
   ax1.set_xticklabels( ('ELM',  'ESN',
-                        'LSTM1000', 'LSTM3000', 'LSTM6000', 'HTM') )
+                        'LSTM1000', 'LSTM3000', 'LSTM6000', 'HTM', 'GRU') )
   for tick in ax1.xaxis.get_major_ticks():
     tick.label.set_rotation('vertical')
 
@@ -381,12 +422,12 @@ if __name__ == "__main__":
                  altMAPELSTM1000,
                  altMAPELSTM3000,
                  altMAPELSTM6000,
-                 altMAPETM], width=width, color='b')
+                 altMAPETM, altMAPEDELAY], width=width, color='b')
   ax3.set_xticks(inds+width/2)
   ax3.set_xlim([inds[0]-width*.6, inds[-1]+width*1.4])
   ax3.set_ylabel('MAPE')
   ax3.set_xticklabels( ('ELM', 'ESN',
-                        'LSTM1000', 'LSTM3000', 'LSTM6000', 'HTM') )
+                        'LSTM1000', 'LSTM3000', 'LSTM6000', 'HTM', 'GRU') )
   for tick in ax3.xaxis.get_major_ticks():
     tick.label.set_rotation('vertical')
   plt.savefig(figPath + 'model_performance_summary_neural_networks.pdf')
