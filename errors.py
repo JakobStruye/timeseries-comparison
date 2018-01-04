@@ -19,9 +19,9 @@ def get_mape(predicted, actual):
 
 names = ["HTM", "GRU"]
 
-expResult = pd.read_csv("prediction/nyc_taxi_TM_pred.csv", header=0, skiprows=[1, 2],
+expResult = pd.read_csv("prediction/reddit_TM_pred.csv", header=0, skiprows=[1, 2],
                             names=['step', 'value', 'prediction5'])          
-expResult2 = pd.read_csv("prediction/nyc_taxi_gru_pred.csv", header=0, skiprows=[1, 2],
+expResult2 = pd.read_csv("prediction/reddit_gru_pred.csv", header=0, skiprows=[1, 2],
                              names=['step', 'value', 'prediction5'])
 
 ignore_first_n = 3000

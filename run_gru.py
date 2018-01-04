@@ -19,6 +19,9 @@
 # http://numenta.org/licenses/
 # ----------------------------------------------------------------------
 
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL']='2' #Suppress build warnings
+
 import csv
 from optparse import OptionParser
 
@@ -36,6 +39,7 @@ from keras.optimizers import adam
 
 from datetime import datetime
 from tqdm import tqdm
+import sys
 
 plt.ion()
 
@@ -47,12 +51,11 @@ x_cols = { #"nyc_taxi": ["dayofweek", "timeofday"],
 
 detailedSets = ["reddit"] #with more than 1 csv
 
+differenceSets = ["reddit"]
 
-limit_to = None  # None for no limit
-lookback = 50
+index = None
 
-
-def readDataSet(dataSet, dataSetDetailed):
+def readDataSet(dataSet, dataSetDetailed, s):
 
     if dataSet in detailedSets:
         dataSource = "%s/%s" % (dataSet,dataSetDetailed)
@@ -89,12 +92,13 @@ def readDataSet(dataSet, dataSetDetailed):
 
         for timestamp in timestamps:
             timestamp = timestamp.split(" ")
-            (dayofweek, timeofday) = getDayAndTime(timestamp[0], timestamp[1])
+            (dayofweek, timeofday) = getDayAndTime(timestamp[0], timestamp[1], s)
             daysofweek.append(dayofweek)
             times.append(timeofday)
 
         daysofweek = pd.Series(daysofweek, index=df.index)
         times = pd.Series(times, index=df.index)
+        index = df.index
         seq = pd.DataFrame(np.array(pd.concat([sequence, times, daysofweek], axis=1)),
                            columns=['data', 'timeofday', 'dayofweek'])
 
@@ -110,24 +114,24 @@ def readDataSet(dataSet, dataSetDetailed):
 
     return seq
 
-def getX(sequence):
-    if dataSet in x_cols:
-        cols = [sequence[key] for key in x_cols[dataSet]]
+def getX(sequence, s):
+    if s.dataSet in x_cols:
+        cols = [sequence[key] for key in x_cols[s.dataSet]]
 
     else:
         col = np.array(sequence['data'])
-        col = col[:len(col) - predictionStep]
+        col = col[:len(col) - s.predictionStep]
         result_col = []
-        for i in range(len(col) - lookback):
-            result_col.append(col[i:i+lookback])
+        for i in range(len(col) - s.lookback):
+            result_col.append(col[i:i+s.lookback])
         cols = [result_col, ]
     return np.column_stack(tuple(cols))
 
 
-def getDayAndTime(date, time):
-    type = hour_types[dataSet]
+def getDayAndTime(date, time, s):
+    type = hour_types[s.dataSet]
     timeofday = None
-    dayofweek = datetime.strptime(date, date_formats[dataSet]).weekday() if date else None
+    dayofweek = datetime.strptime(date, date_formats[s.dataSet]).weekday() if date else None
     time = time.split(":") if time else None
     if type == HourType.TO_MINUTE:
         timeofday = float(int(time[0]) * 24 + (int(time[1]) if len(time) > 1 else 0))
@@ -137,6 +141,9 @@ def getDayAndTime(date, time):
 
 
 def _getArgs():
+    if len(sys.argv) > 1 and not sys.argv[1].startswith("-"):
+        print "USE FLAGS"
+        exit(1)
     parser = OptionParser(usage="%prog PARAMS_DIR OUTPUT_DIR [options]"
                                 "\n\nCompare TM performance with trivial predictor using "
                                 "model outputs in prediction directory "
@@ -163,7 +170,7 @@ def _getArgs():
 
 
 
-def saveResultToFile(dataSet, predictedInput, targetInput, algorithmName):
+def saveResultToFile(dataSet, predictedInput, targetInput, algorithmName, s):
     #inputFileName = 'data/' + dataSet + '.csv'
     #inputFile = open(inputFileName, "rb")
 
@@ -173,15 +180,16 @@ def saveResultToFile(dataSet, predictedInput, targetInput, algorithmName):
     #csvReader.next()
 
     outputFileName = './prediction/' + dataSet + '_' + algorithmName + '_pred.csv'
-    print "Saving to " + './prediction/' + dataSet + '_' + algorithmName + '_pred.csv'
+    if s.max_verbosity > 0:
+        print "Saving to " + './prediction/' + dataSet + '_' + algorithmName + '_pred.csv'
     outputFile = open(outputFileName, "w")
     csvWriter = csv.writer(outputFile)
     csvWriter.writerow(
-        ['timestamp', 'data', 'prediction-' + str(predictionStep) + 'step'])
+        ['timestamp', 'data', 'prediction-' + str(s.predictionStep) + 'step'])
     csvWriter.writerow(['datetime', 'float', 'float'])
     csvWriter.writerow(['', '', ''])
 
-    for i in xrange(len(sequence)):
+    for i in xrange(len(predictedInput)):
         #row = csvReader.next()
         csvWriter.writerow([i, targetInput[i], predictedInput[i]])
 
@@ -193,42 +201,70 @@ def normalize(column, sequence):
     std = np.std(sequence[column])
     sequence[column] = (sequence[column] - mean)/std
 
+def difference(dataset, interval=1):
+    newseries = dataset.copy()
+    for i in range(interval, len(dataset)):
+        newseries['data'][i] = dataset['data'][i] - dataset['data'][i - interval]
+    return newseries
 
-if __name__ == "__main__":
+# invert differenced value
+def inverse_difference(history, yhat, interval=1):
+    return yhat + history[interval]
 
-    (_options, _args) = _getArgs()
-    dataSet = _options.dataSet
-    dataSetDetailed = _options.dataSetDetailed
 
-    x_dims = len(x_cols[dataSet]) if dataSet in x_cols else lookback
-    random.seed(6)
-    np.random.seed(6)
-    nodes = 160
-    rnn = Sequential()
-    rnn.add(GRU(nodes, input_shape=(None,x_dims), kernel_initializer='he_uniform'))
-    #rnn.add(Dropout(0.2))
-    rnn.add(Dense(1, kernel_initializer='he_uniform'))
-    adam = adam(lr=0.001, decay=0.0)#1e-3)
-    rnn.compile(loss='mse', optimizer=adam)
 
-    epochs = 120
-
+class GruSettings:
+    epochs = 3
 
     useTimeOfDay = True
     useDayOfWeek = True
 
     retrain_interval = 1500
-    nTrain = retrain_interval*2
+
     numLags = 100
-    predictionStep = 20
-    batch_size = 1
-    online=True
+    predictionStep = 5
+    batch_size = 128
+    online = True
+    nodes = 12
+
+
+    limit_to = None  # None for no limit
+    lookback = 50
+
+    max_verbosity = 0
+
+    def __init__(self):
+        (_options, _args) = _getArgs()
+        self.dataSet = _options.dataSet
+        if self.dataSet in detailedSets:
+            self.dataSetDetailed = _options.dataSetDetailed
+
+    def finalize(self) :
+        self.nTrain = self.retrain_interval * 2
+
+
+def run_gru(s):
+
+
+
+
+    x_dims = len(x_cols[s.dataSet]) if s.dataSet in x_cols else s.lookback
+    random.seed(6)
+    np.random.seed(6)
+    rnn = Sequential()
+    rnn.add(GRU(s.nodes, input_shape=(None,x_dims), kernel_initializer='he_uniform', stateful=False))
+    #rnn.add(Dropout(0.2))
+    rnn.add(Dense(1, kernel_initializer='he_uniform'))
+    opt = adam(lr=0.001, decay=0.0)#1e-3)
+    rnn.compile(loss='mse', optimizer=opt)
+
+
 
 
     # prepare dataset as pyBrain sequential dataset
-    sequence = readDataSet(dataSet, dataSetDetailed)
-    if limit_to:
-        sequence = sequence[:limit_to]
+    sequence = readDataSet(s.dataSet, s.dataSetDetailed, s)
+    if s.limit_to:
+        sequence = sequence[:s.limit_to]
 
 
 
@@ -245,53 +281,75 @@ if __name__ == "__main__":
     targetInput = np.zeros((len(sequence),))
     trueData = np.zeros((len(sequence),))
 
+    if s.dataSet in differenceSets:
+        backup_sequence = sequence
+        sequence = difference(sequence, s.lookback)
 
-    allX = getX(sequence)
+    allX = getX(sequence, s)
     allY = np.array(sequence['data'])
-    if dataSet not in x_cols:
-        allY = allY[lookback:]
-    trainX = allX[0:nTrain]
-    trainY = allY[predictionStep:nTrain+predictionStep]
+    if s.dataSet not in x_cols:
+        allY = allY[s.lookback:]
+    trainX = allX[0:s.nTrain]
+    trainY = allY[s.predictionStep:s.nTrain+s.predictionStep]
     #print trainX[0] * stdSeq + meanSeq
     #print trainY[0] * stdSeq + meanSeq
     trainX = np.reshape(trainX, (trainX.shape[0], 1, trainX.shape[1]))
-    rnn.fit(trainX, trainY, epochs=epochs, batch_size=batch_size, verbose=2)
-
-    for i in xrange(0,nTrain):
-        targetInput[i] = allY[i+predictionStep]
+    #for i in range(epochs):
+    rnn.fit(trainX, trainY, epochs=s.epochs, batch_size=s.batch_size, verbose=min(s.max_verbosity, 2))
+    #    if i < epochs - 1:
+    #        rnn.reset_states()
+    for i in xrange(0,s.nTrain):
+        targetInput[i] = allY[i+s.predictionStep]
 
 
     # nTrain = 1
     # online = True
     # numLags = 0
     # retrain_interval = 1
-    for i in tqdm(xrange(nTrain, len(allX)-predictionStep)):
 
-        if i % retrain_interval == 0 and i > numLags+nTrain and online:
+    #PREP
+    #for i in tqdm(xrange(0, nTrain + predictionStep)):
+    #    predictedInput[i] = rnn.predict(np.reshape(allX[i], (1,1,x_dims)))
+
+    for i in tqdm(xrange(s.nTrain, len(allX)-s.predictionStep), disable=s.max_verbosity==0):
+
+        if i % s.retrain_interval == 0 and i > s.numLags+s.nTrain and s.online:
             #rnn = Sequential()
             #rnn.add(GRU(nodes, input_shape=(None,2), kernel_initializer='he_uniform'))
             #rnn.add(Dense(1, kernel_initializer='he_uniform'))
             #rnn.compile(loss='mse', optimizer='adam')
-            trainX = allX[i-nTrain:i]
-            trainY = allY[i-nTrain:i]
+            trainX = allX[i-s.nTrain:i]
+            trainY = allY[i-s.nTrain:i]
             trainX = np.reshape(trainX, (trainX.shape[0], 1, trainX.shape[1]))
-            rnn.fit(trainX, trainY, epochs=epochs, batch_size=batch_size, verbose=0)
+            rnn.fit(trainX, trainY, epochs=s.epochs, batch_size=s.batch_size, verbose=0)
 
-        targetInput[i] = allY[i+predictionStep]
-        predictedInput[i] = rnn.predict(np.reshape(allX[i+predictionStep], (1,1,x_dims)))
+        targetInput[i] = allY[i+s.predictionStep]
+        predictedInput[i] = rnn.predict(np.reshape(allX[i+s.predictionStep], (1,1,x_dims)))
+        if s.dataSet in differenceSets:
+            predictedInput[i] = inverse_difference(backup_sequence['data'], predictedInput[i], i-1)
+            targetInput[i] = inverse_difference(backup_sequence['data'], targetInput[i], i-1)
         trueData[i] = sequence['data'][i]
 
     predictedInput = (predictedInput * stdSeq) + meanSeq
     targetInput = (targetInput * stdSeq) + meanSeq
     trueData = (trueData * stdSeq) + meanSeq
 
-    saveResultToFile(dataSet, predictedInput, targetInput, 'gru')
+    saveResultToFile(s.dataSet, predictedInput, targetInput, 'gru', s)
 
-    skipTrain = error_ignore_first[dataSet]
+    skipTrain = error_ignore_first[s.dataSet]
     from plot import computeSquareDeviation
     squareDeviation = computeSquareDeviation(predictedInput, targetInput)
     squareDeviation[:skipTrain] = None
     nrmse = np.sqrt(np.nanmean(squareDeviation)) / np.nanstd(targetInput)
-    print "", nodes, "NRMSE {}".format(nrmse)
+    if s.max_verbosity > 0:
+        print "", s.nodes, "NRMSE {}".format(nrmse)
     mae = np.nanmean(np.abs(targetInput-predictedInput))
-    print "MAE {}".format(mae)
+    if s.max_verbosity > 0:
+        print "MAE {}".format(mae)
+
+    return nrmse
+
+if __name__ == "__main__":
+    settings = GruSettings()
+    settings.finalize()
+    run_gru(settings)

@@ -486,8 +486,8 @@ if __name__ == "__main__":
     NRMSE_TM = NRMSE(actual_data[nTrain:nTrain+nTest], predData_TM_n_step[nTrain:nTrain+nTest])
     print "NRMSE on test data: ", NRMSE_TM
     output.close()
-    #mae = np.nanmean(np.abs(truth-predictions))
-    #print "MAE {}".format(mae)
+    mae = np.nanmean(np.abs(actual_data[nTrain:nTrain+nTest]-predData_TM_n_step[nTrain:nTrain+nTest]))
+    print "MAE {}".format(mae)
 
     # calculate neg-likelihood
     predictions = np.transpose(likelihoodsVecAll)
