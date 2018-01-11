@@ -125,15 +125,18 @@ def readDataSet(dataSet, dataSetDetailed, s):
 
     return seq
 
-def getX(seq_full, s):
+def getX(sequence, s):
+    if s.dataSet in x_cols:
+        cols = [sequence[key] for key in x_cols[s.dataSet]]
 
-    col = seq_full[:len(seq_full) - s.predictionStep]
-    result_col = []
-    counter = 0
-    for i in range(s.front_buffer, len(col)):
-        counter += 1
-        result_col.append(col[i-s.lookback + 1: i+1])
-    return np.array(result_col)
+    else:
+        col = np.array(sequence['data'])
+        col = col[:len(col) - s.predictionStep]
+        result_col = []
+        for i in range(len(col) - s.lookback):
+            result_col.append(col[i:i+s.lookback])
+        cols = [result_col, ]
+    return np.column_stack(tuple(cols))
 
 
 def getDayAndTime(date, time, s):
@@ -188,11 +191,11 @@ def mase_loss(y_true, y_pred):
 
 def configure_batches(season_length, batch_size, target_input):
     new_batches = []
-    start = 0
+    start = season_length
     counter = 0
     while start < len(target_input):
         counter += 1
-        preds = target_input[start:min(start + batch_size, len(target_input))]
+        preds = target_input[start - season_length+5:min(start-season_length+batch_size+5, len(target_input))]
 
         new_batches.append(preds)
         start = start + batch_size
@@ -214,13 +217,13 @@ class GruSettings:
     numLags = 100
     predictionStep = 5
     batch_size = 7
-    online = True
+    online = False
     nodes = 12
 
 
     limit_to = None  # None for no limit
     lookback = 20
-    season = 48
+
     max_verbosity = 2
 
     dataSet = None
@@ -235,8 +238,7 @@ class GruSettings:
             self.dataSetDetailed = _options.dataSetDetailed
 
     def finalize(self) :
-        self.nTrain = self.retrain_interval * 2
-        self.front_buffer = max(self.season - self.predictionStep, self.lookback)
+        self.nTrain = self.retrain_interval * 1
 
 def run_gru(s):
 
@@ -268,6 +270,9 @@ def run_gru(s):
         if key != "data":
             dp.normalize(key, sequence)
 
+    predictedInput = np.zeros((len(sequence),))
+    targetInput = np.zeros((len(sequence),))
+    trueData = np.zeros((len(sequence),))
 
     if s.dataSet in differenceSets:
         predictedInputNodiff = np.zeros((len(sequence),))
@@ -277,36 +282,34 @@ def run_gru(s):
         backup_sequence = sequence
         sequence = dp.difference(sequence, s.lookback)
 
-    seq_full = sequence['data'].values
-    seq_actual = seq_full[s.front_buffer:]
-    allX = getX(seq_full, s)
-    allY = seq_actual[s.predictionStep:]
-    predictedInput = np.zeros((len(allY),))
+    allX = getX(sequence, s)
+    allY = np.array(sequence['data'])
 
-
-
+    allX = allX[48:]
+    allY = allY[48:]
     #if s.dataSet not in x_cols:
     #    allY = allY[s.lookback:]
-    trainX = allX[:s.nTrain]
-    trainY = allY[:s.nTrain]
+    trainX = allX[0:s.nTrain]
+    trainY = allY[s.predictionStep:s.nTrain+s.predictionStep]
     trainX = np.reshape(trainX, (trainX.shape[0], 1, trainX.shape[1]))
+    curBatch = 1.0
     callback = LossCallback()
-    temp_set = np.array(sequence['data'])[:s.nTrain]
-    #configure_batches(s.season, s.batch_size, np.reshape(temp_set, (temp_set.shape[0], 1, 1)))
+    temp_set = np.array(sequence['data'])[:48+s.nTrain+5]
+    configure_batches(48, s.batch_size, np.reshape(temp_set, (temp_set.shape[0], 1, 1)))
     rnn.fit(trainX, trainY, epochs=s.epochs, batch_size=s.batch_size, verbose=min(s.max_verbosity, 2), callbacks=[callback])
-    #for i in xrange(0,s.nTrain):
-    #    targetInput[i] = allY[i+s.predictionStep]
-    targetInput = allY
-    for i in tqdm(xrange(s.nTrain, len(allX)), disable=s.max_verbosity==0):
+    for i in xrange(0,s.nTrain):
+        targetInput[i] = allY[i+s.predictionStep]
+
+    for i in tqdm(xrange(s.nTrain+s.predictionStep, len(allX)), disable=s.max_verbosity==0):
         if i % s.retrain_interval == 0 and i > s.numLags+s.nTrain and s.online:
             trainX = allX[i-s.nTrain-s.predictionStep:i-s.predictionStep]
-            trainY = allY[i-s.nTrain-s.predictionStep:i - s.predictionStep]
+            trainY = allY[i-s.nTrain:i]
             trainX = np.reshape(trainX, (trainX.shape[0], 1, trainX.shape[1]))
-            #temp_set = np.array(sequence['data'])[i-s.nTrain-s.predictionStep - 48 :i]
-            #configure_batches(48, s.batch_size, np.reshape(temp_set, (temp_set.shape[0], 1, 1)))
-            rnn.fit(trainX, trainY, epochs=s.epochs, batch_size=s.batch_size, verbose=0, callbacks=[callback])
+            temp_set = np.array(sequence['data'])[i-s.nTrain-s.predictionStep - 48 :i]
+            configure_batches(48, s.batch_size, np.reshape(temp_set, (temp_set.shape[0], 1, 1)))
+            rnn.fit(trainX, trainY, epochs=s.epochs, batch_size=s.batch_size, verbose=2, callbacks=[callback])
 
-        #targetInput[i] = allY[i]
+        targetInput[i] = allY[i+s.predictionStep]
         predictedInput[i] = rnn.predict(np.reshape(allX[i], (1,1,x_dims)))
         if s.dataSet in differenceSets:
             predictedInputNodiff[i] = predictedInput[i]
@@ -314,6 +317,7 @@ def run_gru(s):
             predictedInput[i] = dp.inverse_difference(backup_sequence['data'], predictedInput[i], i-1)
             targetInput[i] = dp.inverse_difference(backup_sequence['data'], targetInput[i], i-1)
         predictedInput[0] = 0
+        trueData[i] = sequence['data'][i]
 
     #predictedInput = dp.denormalize(predictedInput, meanSeq, stdSeq)
     #targetInput = dp.denormalize(targetInput, meanSeq, stdSeq)
@@ -323,6 +327,8 @@ def run_gru(s):
         # predictedInputNodiff = dp.denormalize(predictedInputNodiff)
         # targetInputNodiff = dp.denormalize(targetInputNodiff)
         pass
+    #trueData = (trueData * stdSeq) + meanSeq
+
     dp.saveResultToFile(s.dataSet, predictedInput, targetInput, 'gru', s.predictionStep, s.max_verbosity)
     skipTrain = error_ignore_first[s.dataSet]
     from plot import computeSquareDeviation

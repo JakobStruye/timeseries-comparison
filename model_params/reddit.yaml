@@ -66,8 +66,8 @@ modelParams:
         clipInput: True
         fieldname: count
         name: _classifierInput
-        maxval: 150000
-        minval: 0
+        maxval: 1
+        minval: -1
         n: 1024
         verbosity: 0
         w: 29
@@ -98,8 +98,8 @@ modelParams:
         fieldname: count
         clipInput: True
         name: count
-        maxval: 150000
-        minval: 0
+        maxval: 1
+        minval: -1
         n: 1024
         verbosity: 0
         w: 29
