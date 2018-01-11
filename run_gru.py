@@ -213,20 +213,20 @@ class GruSettings:
 
     numLags = 100
     predictionStep = 5
-    batch_size = 7
-    online = True
-    nodes = 12
+    batch_size = 17
+    online = False
+    nodes = 67
 
 
     limit_to = None  # None for no limit
-    lookback = 20
+    lookback = 35
     season = 48
     max_verbosity = 2
 
     dataSet = None
     dataSetDetailed = None
 
-    lr = 0.001
+    lr = 0.0242708139604
 
     def __init__(self):
         (_options, _args) = _getArgs()
@@ -334,7 +334,9 @@ def run_gru(s):
     mae = np.nanmean(np.abs(targetInput-predictedInput))
     if s.max_verbosity > 0:
         print "MAE {}".format(mae)
-
+    mase = errors.get_mase(predictedInput, targetInput, np.roll(targetInput, s.season))
+    if s.max_verbosity > 0:
+        print "MASE {}".format(mase)
     if s.dataSet in differenceSets:
         dp.saveResultToFile(s.dataSet, predictedInputNodiff, targetInputNodiff, 'gru_nodiff', s.predictionStep, s.max_verbosity)
         squareDeviation = computeSquareDeviation(predictedInputNodiff, targetInputNodiff)
@@ -345,10 +347,8 @@ def run_gru(s):
         mae = np.nanmean(np.abs(targetInputNodiff-predictedInputNodiff))
         if s.max_verbosity > 0:
             print "MAE {}".format(mae)
-        mase = errors.get_mase(predictedInput, targetInput, np.roll(targetInput, 24))
-        if s.max_verbosity > 0:
-            print "MAE {}".format(mae)
-    return nrmse
+
+    return mase
 
 if __name__ == "__main__":
     settings = GruSettings()

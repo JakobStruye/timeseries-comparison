@@ -29,7 +29,7 @@ def run_and_add(results):
 
 
 def print_results(results):
-    time.sleep(300)
+    time.sleep(15)
     l.acquire()
     sorted_results = sorted(results.items(), key=operator.itemgetter(1))
     for result in sorted_results:
@@ -61,4 +61,4 @@ if __name__ == '__main__':
 
     sorted_results = sorted(results.items(), key=operator.itemgetter(1))
     for result in sorted_results:
-        print "Nodes:", result[0][0], "  Batch size:", result[0][1], "  MASE:", result[1]
+        print "Nodes:", result[0][0], "  Batch size:", result[0][1], " LR:", result[0][2], " Lookback: ", result[0][3], "  MASE:", result[1]
