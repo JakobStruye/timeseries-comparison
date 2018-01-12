@@ -15,9 +15,9 @@ def run_and_add(results):
         nodes = max(1, int(round(10.0 ** nodes_log)))
         batch_log = random.random() * 3.0
         batch = max(1, int(round(10.0 ** batch_log)))
-        lr_log = random.random() * 3.0
-        lr = 10.0 ** - lr_log
-        lookback = random.randint(1,50)
+        lr_log = random.random() * 2.0
+        lr = 10.0 ** - (lr_log + 2)
+        lookback = random.randint(45,100)
         l.acquire()
         print "Running for", nodes, "nodes,", batch, "batch size,", lr, "learning rate and", lookback, "lookback"
         l.release()

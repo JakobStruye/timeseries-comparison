@@ -43,6 +43,7 @@ import errors
 import tensorflow as tf
 import keras.backend as K
 from keras.callbacks import Callback
+from math import ceil
 
 x_cols = { #"nyc_taxi": ["dayofweek", "timeofday"],
            #"test": ["x"],
@@ -56,14 +57,14 @@ differenceSets = []#["reddit"]
 
 index = None
 
-global_step = tf.Variable(0, name='global_step', trainable=False, dtype=tf.int32)
-increment_global_step_op = tf.assign(global_step, global_step+1)
-reset_global_step_op = tf.assign(global_step, 0)
+global_step = None
+increment_global_step_op = None
+reset_global_step_op = None
 
-batches = tf.get_variable("batches", [215, 7, 1, 1], dtype=tf.float32,
-  initializer=tf.zeros_initializer)
-images_placeholder = tf.placeholder(tf.float32, shape=(215,7,1,1))
-batches_op = tf.assign(batches, images_placeholder)
+batches = None
+images_placeholder = None
+batches_op = None
+
 
 
 def readDataSet(dataSet, dataSetDetailed, s):
@@ -193,18 +194,18 @@ def configure_batches(season_length, batch_size, target_input):
     while start < len(target_input):
         counter += 1
         preds = target_input[start:min(start + batch_size, len(target_input))]
-
         new_batches.append(preds)
         start = start + batch_size
-    batches2 = np.reshape(np.array(new_batches), (215,7,1,1))
+
+    batches2 = np.reshape(np.array(new_batches), (int(ceil(len(target_input)/float(batch_size))),batch_size,1,1))
     fd = { images_placeholder: batches2}
-    result = K.get_session().run(batches_op, feed_dict=fd)
+    K.get_session().run(batches_op, feed_dict=fd)
 
 
 
 
 class GruSettings:
-    epochs = 5
+    epochs = 50
 
     useTimeOfDay = True
     useDayOfWeek = True
@@ -213,20 +214,20 @@ class GruSettings:
 
     numLags = 100
     predictionStep = 5
-    batch_size = 17
-    online = False
-    nodes = 67
+    batch_size = 14
+    online = True
+    nodes = 36
 
 
     limit_to = None  # None for no limit
-    lookback = 35
+    lookback = 150
     season = 48
     max_verbosity = 2
 
     dataSet = None
     dataSetDetailed = None
 
-    lr = 0.0242708139604
+    lr = 0.001
 
     def __init__(self):
         (_options, _args) = _getArgs()
@@ -236,9 +237,27 @@ class GruSettings:
 
     def finalize(self) :
         self.nTrain = self.retrain_interval * 2
+        if self.nTrain % self.batch_size != 0:
+            if self.max_verbosity > 0:
+                print "Adding", self.batch_size - (self.nTrain % self.batch_size), "to nTrain", self.nTrain
+            self.nTrain += self.batch_size - (self.nTrain % self.batch_size)
         self.front_buffer = max(self.season - self.predictionStep, self.lookback)
 
 def run_gru(s):
+    global global_step
+    global increment_global_step_op
+    global reset_global_step_op
+    global batches
+    global images_placeholder
+    global batches_op
+    global_step = tf.Variable(0, name='global_step', trainable=False, dtype=tf.int32)
+    increment_global_step_op = tf.assign(global_step, global_step + 1)
+    reset_global_step_op = tf.assign(global_step, 0)
+
+    batches = tf.get_variable("batches", [s.nTrain / int(s.batch_size), s.batch_size, 1, 1], dtype=tf.float32,
+                              initializer=tf.zeros_initializer)
+    images_placeholder = tf.placeholder(tf.float32, shape=(s.nTrain / int(s.batch_size), s.batch_size, 1, 1))
+    batches_op = tf.assign(batches, images_placeholder)
 
     x_dims = len(x_cols[s.dataSet]) if s.dataSet in x_cols else s.lookback
     random.seed(6)
@@ -291,19 +310,19 @@ def run_gru(s):
     trainY = allY[:s.nTrain]
     trainX = np.reshape(trainX, (trainX.shape[0], 1, trainX.shape[1]))
     callback = LossCallback()
-    temp_set = np.array(sequence['data'])[:s.nTrain]
-    #configure_batches(s.season, s.batch_size, np.reshape(temp_set, (temp_set.shape[0], 1, 1)))
+    temp_set =seq_full[:s.nTrain]
+    configure_batches(s.season, s.batch_size, np.reshape(temp_set, (temp_set.shape[0], 1, 1)))
     rnn.fit(trainX, trainY, epochs=s.epochs, batch_size=s.batch_size, verbose=min(s.max_verbosity, 2), callbacks=[callback])
     #for i in xrange(0,s.nTrain):
     #    targetInput[i] = allY[i+s.predictionStep]
     targetInput = allY
-    for i in tqdm(xrange(s.nTrain, len(allX)), disable=s.max_verbosity==0):
+    for i in tqdm(xrange(s.nTrain + s.predictionStep, len(allX)), disable=s.max_verbosity==0):
         if i % s.retrain_interval == 0 and i > s.numLags+s.nTrain and s.online:
             trainX = allX[i-s.nTrain-s.predictionStep:i-s.predictionStep]
-            trainY = allY[i-s.nTrain-s.predictionStep:i - s.predictionStep]
+            trainY = allY[i-s.nTrain-s.predictionStep:i-s.predictionStep]
             trainX = np.reshape(trainX, (trainX.shape[0], 1, trainX.shape[1]))
-            #temp_set = np.array(sequence['data'])[i-s.nTrain-s.predictionStep - 48 :i]
-            #configure_batches(48, s.batch_size, np.reshape(temp_set, (temp_set.shape[0], 1, 1)))
+            temp_set = seq_full[i-s.nTrain-s.predictionStep :i - s.predictionStep]
+            configure_batches(s.front_buffer, s.batch_size, np.reshape(temp_set, (temp_set.shape[0], 1, 1)))
             rnn.fit(trainX, trainY, epochs=s.epochs, batch_size=s.batch_size, verbose=0, callbacks=[callback])
 
         #targetInput[i] = allY[i]
@@ -353,4 +372,5 @@ def run_gru(s):
 if __name__ == "__main__":
     settings = GruSettings()
     settings.finalize()
+
     run_gru(settings)
