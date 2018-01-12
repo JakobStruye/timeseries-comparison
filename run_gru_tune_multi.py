@@ -10,7 +10,7 @@ kill = False
 def run_and_add(results):
 
 
-    for i in range(3):
+    for i in range(10000):
         nodes_log = random.random() * 2.5
         nodes = max(1, int(round(10.0 ** nodes_log)))
         batch_log = random.random() * 3.0
@@ -29,15 +29,17 @@ def run_and_add(results):
 
 
 def print_results(results):
-    time.sleep(15)
-    l.acquire()
-    sorted_results = sorted(results.items(), key=operator.itemgetter(1))
-    for result in sorted_results:
-        print "Nodes:", result[0][0], "  Batch size:", result[0][1], " LR:", result[0][2], " Lookback: ", result[0][3], "  MASE:", result[1]
-    print "DONE"
-    l.release()
-    if kill:
-        return
+    while True:
+        time.sleep(300)
+        l.acquire()
+        sorted_results = sorted(results.items(), key=operator.itemgetter(1))
+        for result in sorted_results:
+            print "Nodes:", result[0][0], "  Batch size:", result[0][1], " LR:", result[0][2], " Lookback: ", result[0][3], "  MASE:", result[1]
+        print "DONE"
+        l.release()
+        if kill:
+            print "KILLED"
+            return
 
 
 
@@ -47,7 +49,7 @@ if __name__ == '__main__':
 
     results = dict()
     threads = []
-    for _ in range(2):
+    for _ in range(30):
         t = threading.Thread(target=run_and_add, args=(results,))
         threads.append(t)
         t.start()
