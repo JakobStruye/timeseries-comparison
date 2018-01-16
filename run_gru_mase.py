@@ -17,6 +17,7 @@ settings.batch_size = None
 settings.retrain_interval = retrain_interval
 settings.lr = lr
 settings.lookback = lookback
+settings.season = 1440
 settings.finalize()
 mase, closer_rate = run_gru(settings)
 
