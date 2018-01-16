@@ -25,14 +25,27 @@ def get_mase(predicted, actual, actual_rolled):
 if __name__ == '__main__':
     names = ["HTM", "GRU"]
     expName = "reddit" if len(argv) < 2 else argv[1]
-    expResult = pd.read_csv("prediction/" + expName + "_TM_pred.csv", header=0, skiprows=[1, 2],
+    if expName != "rssi":
+        expResult = pd.read_csv("prediction/" + expName + "_TM_pred.csv", header=0, skiprows=[1, 2],
                                 names=['step', 'value', 'prediction5'])
     expResult2 = pd.read_csv("prediction/" + expName + "_gru_pred.csv", header=0, skiprows=[1, 2],
                                  names=['step', 'value', 'prediction5'])
 
     ignore_first_n = 5000
-    ress = [expResult, expResult2]
+
+    if expName == "rssi":
+        ress = [expResult2]
+    else:
+        ress = [expResult, expResult2]
+
+    if expName == "reddit":
+        season = 24
+    elif expName == "nyc_taxi":
+        season = 48
+    elif expName == "rssi":
+        season = 1440
     doRoll = [False, False]
+
     for i in range(len(ress)):
         res = ress[i]
         actual = np.array(res['value'])
@@ -41,7 +54,7 @@ if __name__ == '__main__':
             actual = np.roll(actual, -5)
 
         actual_rolled = np.roll(actual, 5)
-        actual_rolled_seasonal = np.roll(actual, 48)
+        actual_rolled_seasonal = np.roll(actual, season)
 
 
         actual[0:ignore_first_n] = np.nan

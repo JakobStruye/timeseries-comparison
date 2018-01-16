@@ -52,9 +52,9 @@ class DataProcessor():
             targetInput[i] = scaler.inverse_transform(np.reshape(targetInput[i:i + 1], (1, 1)))
 
 
-    def normalize(self, column, sequence):
-        mean = np.mean(sequence[column])
-        std = np.std(sequence[column])
+    def normalize(self, column, sequence, nTrain):
+        mean = np.mean(sequence[column][:nTrain])
+        std = np.std(sequence[column][:nTrain])
         sequence[column] = (sequence[column] - mean)/std
         return (mean,std)
 

@@ -16,6 +16,9 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    labels = ["Actual", "Predicted"]
+    handles = []
+
     df = pd.read_csv(args.filename, header=0, delimiter=args.delimiter, skiprows=[] if not args.skip else range(1, args.skip+1))
     plt.figure()
 
@@ -38,12 +41,16 @@ if __name__ == '__main__':
             print "", old_len-new_len, "of", old_len, "items could not be converted to float"
         if missing_count > 0:
             print "", missing_count, "of", new_len, "points exactly -1.0, possibly indicating missing data"
-
-        plt.plot(float_seq)
+        handle, = plt.plot(float_seq)
+        handles.append(handle)
     if args.xrange:
         plt.xlim(args.xrange)
     if args.yrange:
         plt.ylim(args.yrange)
+
+    if len(handles) == 2:
+        plt.legend(handles, labels)
+
 
     print "Plotting", len(float_seq), "data points ranging between", min(float_seq), "and", max(float_seq)
     plt.show(block=True)

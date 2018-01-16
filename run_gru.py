@@ -44,6 +44,7 @@ import tensorflow as tf
 import keras.backend as K
 from keras.callbacks import Callback
 from math import ceil
+import gc
 
 x_cols = { #"nyc_taxi": ["dayofweek", "timeofday"],
            #"test": ["x"],
@@ -121,6 +122,18 @@ def readDataSet(dataSet, dataSetDetailed, s):
         incr = df['x']
         seq = pd.DataFrame(np.array(pd.concat([sequence, incr], axis=1)),
                            columns=['data', 'x'])
+    elif "rssi" in dataSet:
+        df = pd.read_csv(filePath, header=0, skiprows=[],
+                         names=['data'])
+        sequence = df['data']
+        seq = pd.DataFrame(np.array(pd.concat([sequence,], axis=1)),
+                           columns=['data'])
+    elif "sin" in dataSet:
+        df = pd.read_csv(filePath, header=0, skiprows=[],
+                         names=['data'])
+        sequence = df['data']
+        seq = pd.DataFrame(np.array(pd.concat([sequence, ], axis=1)),
+                           columns=['data'])
     else:
         raise(' unrecognized dataset type ')
 
@@ -205,22 +218,21 @@ def configure_batches(season_length, batch_size, target_input):
 
 
 class GruSettings:
-    epochs = 50
+    epochs = 75
 
     useTimeOfDay = True
     useDayOfWeek = True
 
     retrain_interval = 1500
 
-    numLags = 100
     predictionStep = 5
-    batch_size = 14
+    batch_size = 17
     online = True
-    nodes = 36
+    nodes = 58
 
 
     limit_to = None  # None for no limit
-    lookback = 150
+    lookback = 50
     season = 48
     max_verbosity = 2
 
@@ -234,14 +246,21 @@ class GruSettings:
         self.dataSet = _options.dataSet
         if self.dataSet in detailedSets:
             self.dataSetDetailed = _options.dataSetDetailed
+        else:
+            self.dataSetDetailed = None
 
     def finalize(self) :
-        self.nTrain = self.retrain_interval * 2
+        self.nTrain = max(self.retrain_interval * 2, self.season * 3)
+        if self.batch_size is None:
+            self.batch_size = self.nTrain
         if self.nTrain % self.batch_size != 0:
             if self.max_verbosity > 0:
                 print "Adding", self.batch_size - (self.nTrain % self.batch_size), "to nTrain", self.nTrain
             self.nTrain += self.batch_size - (self.nTrain % self.batch_size)
+        self.numLags = 0.25 * self.nTrain
+
         self.front_buffer = max(self.season - self.predictionStep, self.lookback)
+
 
 def run_gru(s):
     global global_step
@@ -278,9 +297,9 @@ def run_gru(s):
 
     dp = DataProcessor()
     # standardize data by subtracting mean and dividing by std
-    #(meanSeq, stdSeq) = dp.normalize('data', sequence)
+    (meanSeq, stdSeq) = dp.normalize('data', sequence, s.nTrain)
 
-    dp.windowed_normalize(sequence)
+    #dp.windowed_normalize(sequence)
 
 
     for key in sequence.keys():
@@ -316,7 +335,10 @@ def run_gru(s):
     #for i in xrange(0,s.nTrain):
     #    targetInput[i] = allY[i+s.predictionStep]
     targetInput = allY
+    pred_diffs = []
+    pred_closer_to_actual = []
     for i in tqdm(xrange(s.nTrain + s.predictionStep, len(allX)), disable=s.max_verbosity==0):
+    #for i in tqdm(xrange(0, len(allX)), disable=s.max_verbosity == 0):
         if i % s.retrain_interval == 0 and i > s.numLags+s.nTrain and s.online:
             trainX = allX[i-s.nTrain-s.predictionStep:i-s.predictionStep]
             trainY = allY[i-s.nTrain-s.predictionStep:i-s.predictionStep]
@@ -327,16 +349,20 @@ def run_gru(s):
 
         #targetInput[i] = allY[i]
         predictedInput[i] = rnn.predict(np.reshape(allX[i], (1,1,x_dims)))
+        pred_diffs.append(abs(predictedInput[i] - allX[i][-1]))
+        pred_closer_to_actual.append(abs(predictedInput[i] - targetInput[i]) < abs(predictedInput[i] - allX[i-s.predictionStep][-1]))
+
         if s.dataSet in differenceSets:
             predictedInputNodiff[i] = predictedInput[i]
             targetInputNodiff[i] = targetInput[i]
             predictedInput[i] = dp.inverse_difference(backup_sequence['data'], predictedInput[i], i-1)
             targetInput[i] = dp.inverse_difference(backup_sequence['data'], targetInput[i], i-1)
         predictedInput[0] = 0
-
-    #predictedInput = dp.denormalize(predictedInput, meanSeq, stdSeq)
-    #targetInput = dp.denormalize(targetInput, meanSeq, stdSeq)
-    dp.windowed_denormalize(predictedInput, targetInput)
+    for i in range(s.nTrain + s.predictionStep):
+        predictedInput[i] = np.nan
+    predictedInput = dp.denormalize(predictedInput, meanSeq, stdSeq)
+    targetInput = dp.denormalize(targetInput, meanSeq, stdSeq)
+    #dp.windowed_denormalize(predictedInput, targetInput)
     if s.dataSet in differenceSets:
 
         # predictedInputNodiff = dp.denormalize(predictedInputNodiff)
@@ -366,8 +392,12 @@ def run_gru(s):
         mae = np.nanmean(np.abs(targetInputNodiff-predictedInputNodiff))
         if s.max_verbosity > 0:
             print "MAE {}".format(mae)
-
-    return mase
+    closer_rate = pred_closer_to_actual.count(True) / float(len(pred_closer_to_actual))
+    if s.max_verbosity > 0:
+        pred_diffs.sort()
+        print pred_diffs[0], pred_diffs[-1], pred_diffs[int(0.9 * len(pred_diffs))]
+        print "Good results:", closer_rate
+    return mase, closer_rate
 
 if __name__ == "__main__":
     settings = GruSettings()

@@ -15,7 +15,9 @@ predicted_fields = {"nyc_taxi": "passenger_count",
                     "energy": "T3",
                     "retail": "turnover",
                     "reddit": "count",
-                    "test": "y"}
+                    "test": "y",
+                    "rssi": "data",
+                    "sin": "data"}
 
 date_formats = {"nyc_taxi": '%Y-%m-%d',
                 "sunspot": '%Y-%m-%d %H:%M:%S',
@@ -45,4 +47,6 @@ error_ignore_first = {"nyc_taxi": 3000,
                     "energy": 5000,
                     "retail": 1000,
                     "reddit": 5000,
-                    "test": 5000}
+                    "test": 5000,
+                    "rssi": 4500,
+                    "sin": 30000}
