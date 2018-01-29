@@ -13,10 +13,17 @@ def run_and_add(results, results_closer):
     for i in range(1000):
         nodes_log = random.random() * 2.5
         nodes = max(1, int(round(10.0 ** nodes_log)))
-        lr = random.random() * 4.0 / 1000.0
-        lookback = random.randint(10,200)
-        retrain_interval = random.randint(50,1500)
-        epochs = random.randint(20,250)
+        nodes = random.randint(50,60)
+        nodes = 53
+        lr = random.random() * 4.0 / 10000
+        lr = random.uniform(0.0001,0.001)
+        lr = 0.00077
+        lookback = random.randint(50,60)
+        lookback = 52
+        retrain_interval = random.randint(1000,2000)
+        retrain_interval = random.randint(1000,1350)
+        epochs = random.randint(50,200)
+        epochs = random.randint(60,130)
 
         l.acquire()
         print "Running for", nodes, "nodes,", retrain_interval, "retrain,", lr, "learning rate,", lookback, "lookback and", epochs, "epochs"
