@@ -31,10 +31,6 @@ import pandas as pd
 import numpy as np
 from dataset_settings import *
 
-from keras.models import Sequential
-from keras.layers import Dense, LSTM, Dropout, GRU
-#from recurrent import GRU
-from keras.optimizers import adam
 
 from datetime import datetime
 from tqdm import tqdm
@@ -42,20 +38,14 @@ import sys
 from data_processing import DataProcessor
 import errors
 import tensorflow as tf
-import keras.backend as K
-from keras.callbacks import Callback
-from math import ceil
-import gc
+import rnn_tf
+from keras.models import Sequential
+from keras.layers import Dense, LSTM, Dropout, GRU
+from keras.optimizers import adam
+from adaptive_normalization import AdaptiveNormalizer
 
-x_cols = { #"nyc_taxi": ["dayofweek", "timeofday"],
-           #"test": ["x"],
-           #"sunspot": ["incr"],
-           #"reddit": ["dayofweek", "timeofday"]
-         }
 
 detailedSets = ["reddit"] #with more than 1 csv
-
-differenceSets = []#["reddit"]
 
 index = None
 
@@ -141,7 +131,16 @@ def readDataSet(dataSet, dataSetDetailed, s):
     return seq
 
 def getX(seq_full, s):
+    """
+    Converts the full sequence of data to a lookback format:
+    x[t] contains the _lookback_ latest values known at time t
 
+    :param seq_full: Full set of values
+    :param s: Settings
+    :return: Lookback format of x
+    """
+
+    #Ignore the final _predictionStep_ here; they have no known y
     col = seq_full[:len(seq_full) - s.predictionStep + 1]
     result_col = []
     counter = 0
@@ -190,36 +189,8 @@ def _getArgs():
 
     return options, remainder
 
-class LossCallback(Callback):
-
-    def on_batch_end(self, batch, logs={}):
-        K.get_session().run(increment_global_step_op)
-
-    def on_epoch_begin(self, epoch, logs={}):
-        K.get_session().run(reset_global_step_op)
-
-def mase_loss(y_true, y_pred):
-    return K.mean(K.abs(y_true - y_pred) / K.mean(K.abs(y_true - tf.gather(batches, global_step))))
-
-def configure_batches(season_length, batch_size, target_input):
-    new_batches = []
-    start = 0
-    counter = 0
-    while start < len(target_input):
-        counter += 1
-        preds = target_input[start:min(start + batch_size, len(target_input))]
-        new_batches.append(preds)
-        start = start + batch_size
-
-    batches2 = np.reshape(np.array(new_batches), (int(ceil(len(target_input)/float(batch_size))),batch_size,1,1))
-    fd = { images_placeholder: batches2}
-    K.get_session().run(batches_op, feed_dict=fd)
-
-
-
-
 class GruSettings:
-    epochs = 40
+    epochs = 75
 
     useTimeOfDay = True
     useDayOfWeek = True
@@ -227,15 +198,18 @@ class GruSettings:
     retrain_interval = 1500
 
     predictionStep = 5
-    batch_size = None
+    batch_size = 17
     online = True
     nodes = 58
 
 
     limit_to = None  # None for no limit
     lookback = 50
-    season = 24
+    season = 48
     max_verbosity = 2
+
+    normalization_type = 'default' #'default', 'windowed' or 'AN' (adaptive normalization
+    implementation = "tf" #"tf" or "keras"
 
     dataSet = None
     dataSetDetailed = None
@@ -246,20 +220,25 @@ class GruSettings:
         (_options, _args) = _getArgs()
         self.dataSet = _options.dataSet
         if self.dataSet in detailedSets:
+            #For types of data with multiple datasets (e.g. per hour and per minute for Reddit)
             self.dataSetDetailed = _options.dataSetDetailed
         else:
             self.dataSetDetailed = None
 
     def finalize(self) :
+        """ To be called after setting everything"""
         self.nTrain = max(self.retrain_interval * 2, self.season * 3)
         if self.batch_size is None:
+            #No batch learning
             self.batch_size = self.nTrain
         if self.nTrain % self.batch_size != 0:
             if self.max_verbosity > 0:
                 print "Adding", self.batch_size - (self.nTrain % self.batch_size), "to nTrain", self.nTrain
             self.nTrain += self.batch_size - (self.nTrain % self.batch_size)
-        self.numLags = 0.25 * self.nTrain
+        self.numLags = 0.25 * self.nTrain #Don't immediately retrain
 
+        #The first time at which we can actually predict: need enough headroom for both MASE calculation
+        #and filling the lookback window
         self.front_buffer = max(self.season - self.predictionStep, self.lookback)
 
 
@@ -279,96 +258,147 @@ def run_gru(s):
     images_placeholder = tf.placeholder(tf.float32, shape=(s.nTrain / int(s.batch_size), s.batch_size, 1, 1))
     batches_op = tf.assign(batches, images_placeholder)
 
-    x_dims = len(x_cols[s.dataSet]) if s.dataSet in x_cols else s.lookback
+
+    x_dims = s.lookback
     random.seed(6)
     np.random.seed(6)
-    rnn = Sequential()
-    rnn.add(GRU(s.nodes, input_shape=(None,x_dims), kernel_initializer='he_uniform', stateful=False))
+    tf.set_random_seed(6)
+    if s.implementation == "keras":
+        rnn = Sequential()
+        rnn.add(GRU(s.nodes, input_shape=(None,x_dims), kernel_initializer='he_uniform'))
 
-    #rnn.add(Dropout(0.15))
-    rnn.add(Dense(1, kernel_initializer='he_uniform'))
-    opt = adam(lr=s.lr, decay=0.0)#1e-3)
-    rnn.compile(loss='mae', optimizer=opt)
+        #rnn.add(Dropout(0.15))
+        rnn.add(Dense(1, kernel_initializer='he_uniform'))
+        opt = adam(lr=s.lr, decay=0.0)#1e-3)
+        rnn.compile(loss='mae', optimizer=opt)
+    elif s.implementation == "tf":
+        data = tf.placeholder(tf.float32, [None, 1,  s.lookback])  # Number of examples, number of input, dimension of each input
+        target = tf.placeholder(tf.float32, [None, 1])
+        cell = rnn_tf.GRUCell(s.nodes)
+        #cell = rnn_tf.LSTMCell(s.nodes)
+        #cell = tf.nn.rnn_cell.GRUCell(s.nodes)
+        val, _ = tf.nn.dynamic_rnn(cell, data, dtype=tf.float32)
+        dense = tf.layers.dense(val, 1)
+        pred = tf.reshape(dense, (tf.shape(dense)[0], 1))
+        optimizer = tf.train.AdamOptimizer(learning_rate=s.lr)
+        #cost = tf.losses.mean_squared_error(target, pred)
+        cost = tf.reduce_mean(tf.abs(target - pred))
+        minimize = optimizer.minimize(cost)
 
-    # prepare dataset as pyBrain sequential dataset
+    else:
+        raise Exception("Unknown implementation " + s.implementation)
+
+
     sequence = readDataSet(s.dataSet, s.dataSetDetailed, s)
     if s.limit_to:
         sequence = sequence[:s.limit_to]
 
+    seq_full = sequence['data'].values #use .values to copy
+
+    targetInput = seq_full[s.front_buffer + s.predictionStep - 1:].copy() #grab this now to avoid having to denormalize
 
     dp = DataProcessor()
-    # standardize data by subtracting mean and dividing by std
-    (meanSeq, stdSeq) = dp.normalize('data', sequence, s.nTrain)
+    if s.normalization_type == 'default':
+        (meanSeq, stdSeq) = dp.normalize('data', sequence, s.nTrain)
+    elif s.normalization_type == 'windowed':
+        dp.windowed_normalize(sequence)
+    elif s.normalization_type == 'AN':
+        an = AdaptiveNormalizer(s.lookback, s.lookback + s.predictionStep)
+        an.set_pruning(False)
+        an.set_source_data(seq_full, s.nTrain)
+        an.do_ma('s')
+        an.do_stationary()
+        an.remove_outliers()
+        seq_norm = an.do_adaptive_normalize()
+    else:
+        raise Exception("Unsupported normalization type: " + s.normalization_type)
 
-    #dp.windowed_normalize(sequence)
+    seq_actual = seq_full[s.front_buffer:] #Leave enough headroom for MASE calculation and lookback
+
+    if s.normalization_type != "AN":
+        #Default and windowed change the seq itself but still require creating lookback frames
+        allX = getX(seq_full, s)
+        allY = seq_actual[s.predictionStep-1:]
+    else:
+        #AN creates a new array but takes care of lookback internally
+        allX= seq_norm[:,0:-s.predictionStep]
+        allY = np.reshape(seq_norm[:,-1], (-1,))
 
 
-    for key in sequence.keys():
-        if key != "data":
-            dp.normalize(key, sequence, s.nTrain)
+    predictedInput = np.full((len(allY),), np.nan) #Initialize all predictions to NaN
 
-
-    if s.dataSet in differenceSets:
-        predictedInputNodiff = np.zeros((len(sequence),))
-        targetInputNodiff = np.zeros((len(sequence),))
-
-    if s.dataSet in differenceSets:
-        backup_sequence = sequence
-        sequence = dp.difference(sequence, s.lookback)
-
-    seq_full = sequence['data'].values
-    seq_actual = seq_full[s.front_buffer:]
-    allX = getX(seq_full, s)
-    allY = seq_actual[s.predictionStep - 1:]
-    predictedInput = np.full((len(allY),), np.nan)
-
-
-
-    #if s.dataSet not in x_cols:
-    #    allY = allY[s.lookback:]
     trainX = allX[:s.nTrain]
     trainY = allY[:s.nTrain]
     trainX = np.reshape(trainX, (trainX.shape[0], 1, trainX.shape[1]))
-    rnn.fit(trainX, trainY, epochs=s.epochs, batch_size=s.batch_size, verbose=min(s.max_verbosity, 2))
-    #for i in xrange(0,s.nTrain):
-    #    targetInput[i] = allY[i+s.predictionStep]
-    targetInput = allY
-    pred_diffs = []
-    pred_closer_to_actual = []
-    isFirst = True
-    for i in tqdm(xrange(s.nTrain + s.predictionStep, len(allX)), disable=s.max_verbosity==0):
-    #for i in tqdm(xrange(0, len(allX)), disable=s.max_verbosity == 0):
+    trainY = np.reshape(trainY, (trainY.shape[0], 1))
+    if s.implementation == "keras":
+        rnn.fit(trainX, trainY, epochs=s.epochs, batch_size=s.batch_size, verbose=min(s.max_verbosity, 2))
+    elif s.implementation == "tf":
+        sess = tf.Session()
+        init = tf.global_variables_initializer()
+        sess.run(init)
+
+        for epoch in tqdm(range(s.epochs)):
+            sess.run(minimize, feed_dict={data: trainX, target: trainY})
+            #print(psutil.Process(os.getpid()).memory_percent())
+            # var = [v for v in tf.trainable_variables() if v.name == "rnn/gru_cell/gates/kernel:0"][0]
+            # print sess.run(tf.reduce_min(var))
+            # print sess.run(tf.reduce_max(var))
+            # var = [v for v in tf.trainable_variables() if v.name == "rnn/gru_cell/gates/bias:0"][0]
+            # print sess.run(tf.reduce_min(var))
+            # print sess.run(tf.reduce_max(var))
+            # var = [v for v in tf.trainable_variables() if v.name == "rnn/gru_cell/candidate/kernel:0"][0]
+            # print sess.run(tf.reduce_min(var))
+            # print sess.run(tf.reduce_max(var))
+            # var = [v for v in tf.trainable_variables() if v.name == "rnn/gru_cell/candidate/bias:0"][0]
+            # print sess.run(tf.reduce_min(var))
+            # print sess.run(tf.reduce_max(var))
+            # print "loop"
+
+    latestStart = None
+    for i in tqdm(xrange(s.nTrain + s.predictionStep, len(allX)), disable=s.max_verbosity == 0):
         if i % s.retrain_interval == 0 and i > s.numLags+s.nTrain and s.online:
+            if s.normalization_type == 'AN':
+                predictedInput = np.array(an.do_adaptive_denormalize(predictedInput, therange=(i-s.retrain_interval, i)))
+                latestStart = i
+                an.set_ignore_first_n(i-s.nTrain-s.predictionStep)
+                an.do_ma('s')
+                an.do_stationary()
+                an.remove_outliers()
+                seq_norm = an.do_adaptive_normalize()
+
+                allX = seq_norm[:, 0:-s.predictionStep]
+                allY = np.reshape(seq_norm[:, -1], (-1,))
+
             trainX = allX[i-s.nTrain-s.predictionStep:i-s.predictionStep]
             trainY = allY[i-s.nTrain-s.predictionStep:i-s.predictionStep]
             trainX = np.reshape(trainX, (trainX.shape[0], 1, trainX.shape[1]))
-            rnn.fit(trainX, trainY, epochs=s.epochs, batch_size=s.batch_size, verbose=0)
+            trainY = np.reshape(trainY, (trainY.shape[0], 1))
+            if s.implementation == "keras":
+                rnn.fit(trainX, trainY, epochs=s.epochs, batch_size=s.batch_size, verbose=0)
+            elif s.implementation == "tf":
+                for epoch in range(s.epochs):
+                    sess.run(minimize, feed_dict={data: trainX, target: trainY})
+        if s.implementation == "keras":
+            predictedInput[i] = rnn.predict(np.reshape(allX[i], (1,1,x_dims)))
 
-        #targetInput[i] = allY[i]
-        predictedInput[i] = rnn.predict(np.reshape(allX[i], (1,1,x_dims)))
-        if isFirst:
-            print predictedInput[i]
-            isFirst = False
-        #predictedInput[i] = targetInput[i-1440]
-        pred_diffs.append(abs(predictedInput[i] - allX[i][-1]))
-        pred_closer_to_actual.append(abs(predictedInput[i] - targetInput[i]) < abs(predictedInput[i] - allX[i][-1]))
+        elif s.implementation == "tf":
+            predictedInput[i] = sess.run(dense, feed_dict={data: np.reshape(allX[i], (1, 1, x_dims))})
 
-        if s.dataSet in differenceSets:
-            predictedInputNodiff[i] = predictedInput[i]
-            targetInputNodiff[i] = targetInput[i]
-            predictedInput[i] = dp.inverse_difference(backup_sequence['data'], predictedInput[i], i-1)
-            targetInput[i] = dp.inverse_difference(backup_sequence['data'], targetInput[i], i-1)
     for i in range(s.nTrain + s.predictionStep):
         predictedInput[i] = np.nan
-    predictedInput = dp.denormalize(predictedInput, meanSeq, stdSeq)
-    targetInput = dp.denormalize(targetInput, meanSeq, stdSeq)
-    #dp.windowed_denormalize(predictedInput, targetInput)
-    print "FINAL", predictedInput[-1], targetInput[-1], len(predictedInput), len(targetInput)
-    if s.dataSet in differenceSets:
 
-        # predictedInputNodiff = dp.denormalize(predictedInputNodiff)
-        # targetInputNodiff = dp.denormalize(targetInputNodiff)
-        pass
+
+    if s.normalization_type == 'default':
+        predictedInput = dp.denormalize(predictedInput, meanSeq, stdSeq)
+    elif s.normalization_type == 'windowed':
+        dp.windowed_denormalize(predictedInput, targetInput)
+    elif s.normalization_type == 'AN':
+        if latestStart:
+            predictedInput = np.array(an.do_adaptive_denormalize(predictedInput, therange=(latestStart, len(predictedInput))))
+        else:
+            predictedInput = np.array(an.do_adaptive_denormalize(predictedInput))
+
     dp.saveResultToFile(s.dataSet, predictedInput, targetInput, 'gru', s.predictionStep, s.max_verbosity)
     skipTrain = error_ignore_first[s.dataSet]
     from plot import computeSquareDeviation
@@ -383,22 +413,10 @@ def run_gru(s):
     mase = errors.get_mase(predictedInput, targetInput, np.roll(targetInput, s.season))
     if s.max_verbosity > 0:
         print "MASE {}".format(mase)
-    if s.dataSet in differenceSets:
-        dp.saveResultToFile(s.dataSet, predictedInputNodiff, targetInputNodiff, 'gru_nodiff', s.predictionStep, s.max_verbosity)
-        squareDeviation = computeSquareDeviation(predictedInputNodiff, targetInputNodiff)
-        squareDeviation[:skipTrain] = None
-        nrmse = np.sqrt(np.nanmean(squareDeviation)) / np.nanstd(targetInputNodiff)
-        if s.max_verbosity > 0:
-            print "", s.nodes, "NRMSE {}".format(nrmse)
-        mae = np.nanmean(np.abs(targetInputNodiff-predictedInputNodiff))
-        if s.max_verbosity > 0:
-            print "MAE {}".format(mae)
-    closer_rate = pred_closer_to_actual.count(True) / float(len(pred_closer_to_actual))
-    if s.max_verbosity > 0:
-        pred_diffs.sort()
-        print pred_diffs[0], pred_diffs[-1], pred_diffs[int(0.9 * len(pred_diffs))]
-        print "Good results:", closer_rate
-    return mase, closer_rate
+
+    if s.implementation == "tf":
+        sess.close()
+    return mase
 
 if __name__ == "__main__":
     settings = GruSettings()

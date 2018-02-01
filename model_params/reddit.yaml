@@ -188,7 +188,7 @@ modelParams:
     verbosity: 0
     regionName: SDRClassifierRegion
     alpha: 0.01
-    steps: '5'
+    steps: '1'
     implementation: py
 
   # If set, don't create the SP network unless the user requests SP metrics.

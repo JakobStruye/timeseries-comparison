@@ -19,7 +19,13 @@ def get_mape(predicted, actual):
     return np.nansum(np.abs(predicted - actual)) / np.nansum(np.abs(actual))
 
 def get_mase(predicted, actual, actual_rolled):
-    return np.nanmean(np.abs(predicted - actual) / get_mae(actual_rolled[predict_step:], actual[predict_step:]))
+    nonnan = None
+    for i in range(len(predicted)):
+        if not np.isnan(predicted[i]):
+            nonnan = i
+            break
+
+    return np.nanmean(np.abs(predicted - actual) / get_mae(actual_rolled[nonnan:], actual[nonnan:]))
 
 
 if __name__ == '__main__':
@@ -31,7 +37,7 @@ if __name__ == '__main__':
     expResult2 = pd.read_csv("prediction/" + expName + "_gru_pred.csv", header=0, skiprows=[1, 2],
                                  names=['step', 'value', 'prediction5'])
 
-    ignore_first_n = 5000
+    ignore_first_n = 4320
 
     if expName == "rssi":
         ress = [expResult2]

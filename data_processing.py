@@ -1,9 +1,11 @@
+
 from sklearn.preprocessing import MinMaxScaler
 import numpy as np
 from tqdm import tqdm
 import time
 from pandas import Series
 import csv
+
 
 class DataProcessor():
 
@@ -48,8 +50,31 @@ class DataProcessor():
             the_range = [only_i]
         for i in the_range:
             scaler = self.scalers[i]
-            predictedInput[i] = scaler.inverse_transform(np.reshape(predictedInput[i:i + 1], (1, 1)))
-            targetInput[i] = scaler.inverse_transform(np.reshape(targetInput[i:i + 1], (1, 1)))
+            predictedInput[i] = np.nan if np.isnan(predictedInput[i]) else scaler.inverse_transform(np.reshape(predictedInput[i:i + 1], (1, 1)))
+            targetInput[i] = np.nan if np.isnan(targetInput[i]) else  scaler.inverse_transform(np.reshape(targetInput[i:i + 1], (1, 1)))
+
+
+    def frame_normalize(self, column, sequence, start, mid, end):
+        print "Normalize from", start, "to", end
+        mean = np.mean(sequence[column][start:mid])
+        std = np.std(sequence[column][start:mid])
+        sequence[column][start:end] = (sequence[column][start:end] - mean)/std
+        return (mean,std)
+
+    def frame_denormalize(self, column, sequence, mean, std, start, end):
+        start = max(0, start)
+        print "Denormalize from", start, "to", end
+        sequence[column][start:end] = (sequence[column][start:end] * std) + mean
+
+    def frame_denormalize_col(self, column, mean, std, start, end):
+        print "Col denormalize from", start, "to", end
+        column[start:end] = (column[start:end] * std) + mean
+
+    def normalize(self, column, sequence):
+        mean = np.mean(sequence[column])
+        std = np.std(sequence[column])
+        sequence[column] = (sequence[column] - mean)/std
+        return (mean,std)
 
 
     def normalize(self, column, sequence, nTrain):
@@ -89,3 +114,7 @@ class DataProcessor():
             csvWriter.writerow([i, targetInput[i], '%.13f' % predictedInput[i]])
 
         outputFile.close()
+
+
+
+    #ADAPTIVE NORMALIZATION
