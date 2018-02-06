@@ -4,8 +4,8 @@ from run_gru_tf import GruSettings, run_gru
 
 settings = GruSettings()
 settings.max_verbosity = 2
-settings.epochs = 150
-settings.online = True
+settings.epochs = 1000
+settings.online = False
 nodes = 100
 lr = 0.0077
 lookback = 50
@@ -19,9 +19,9 @@ settings.retrain_interval = 2500
 #settings.nTrain = 5000
 settings.ignore_for_error = 5500
 settings.normalization_type = 'default'
-settings.implementation = 'keras'
+settings.implementation = 'tf'
 settings.rnn_type = 'lstm'
-settings.use_binary = False
+settings.use_binary = True
 settings.limit_to = None
 settings.finalize()
 mase = run_gru(settings)

@@ -21,7 +21,6 @@ def get_mape(predicted, actual, ignore=None):
     #return np.nansum(np.abs(predicted - actual)) / np.nansum(np.abs(actual))
 
 def get_mase(predicted, actual, actual_rolled, ignore=None):
-    print predicted.shape
     if not ignore:
         for i in range(len(predicted)):
             if not np.isnan(predicted[i]):

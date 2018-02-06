@@ -43,6 +43,7 @@ from keras.models import Sequential
 from keras.layers import Dense, LSTM, Dropout, GRU
 from keras.optimizers import adam
 from adaptive_normalization import AdaptiveNormalizer
+import core_binary
 
 
 detailedSets = ["reddit"] #with more than 1 csv
@@ -251,6 +252,8 @@ class GruSettings:
 
 
 def run_gru(s):
+    prob = tf.placeholder_with_default(1.0, shape=())
+
     global global_step
     global increment_global_step_op
     global reset_global_step_op
@@ -268,9 +271,9 @@ def run_gru(s):
 
 
     x_dims = s.lookback
-    random.seed(6)
-    np.random.seed(6)
-    tf.set_random_seed(6)
+    #random.seed(6)
+    #np.random.seed(6)
+    #tf.set_random_seed(6)
     if s.implementation == "keras":
         if s.use_binary:
             raise Exception("Binary Keras not implemented")
@@ -280,7 +283,7 @@ def run_gru(s):
         elif s.rnn_type == "gru":
             rnn.add(GRU(s.nodes, input_shape=(None, x_dims), kernel_initializer='he_uniform'))
 
-        #rnn.add(Dropout(0.15))
+        rnn.add(Dropout(0.5))
         rnn.add(Dense(1, kernel_initializer='he_uniform'))
         opt = adam(lr=s.lr, decay=0.0)#1e-3)
         rnn.compile(loss='mae', optimizer=opt)
@@ -295,10 +298,14 @@ def run_gru(s):
             cell = rnn_tf.GRUCell(s.nodes)
         elif s.rnn_type == "gru" and not s.use_binary:
             cell = tf.nn.rnn_cell.GRUCell(s.nodes)
-        #cell = rnn_tf.LSTMCell(s.nodes)
-        #cell = tf.nn.rnn_cell.GRUCell(s.nodes)
+
+
         val, _ = tf.nn.dynamic_rnn(cell, data, dtype=tf.float32)
-        dense = tf.layers.dense(val, 1)
+        val = tf.nn.dropout(val, prob)
+        if not s.use_binary:
+            dense = tf.layers.dense(val, 1)
+        else:
+            dense = core_binary.dense(val, 1)
         pred = tf.reshape(dense, (tf.shape(dense)[0], 1))
         optimizer = tf.train.AdamOptimizer(learning_rate=s.lr)
         #cost = tf.losses.mean_squared_error(target, pred)
@@ -319,9 +326,7 @@ def run_gru(s):
 
     dp = DataProcessor()
     if s.normalization_type == 'default':
-        print "PRENORM", sequence['data'][5000]
         (meanSeq, stdSeq) = dp.normalize('data', sequence, s.nTrain)
-        print "POSTNORM", sequence['data'][5000]
     elif s.normalization_type == 'windowed':
         dp.windowed_normalize(sequence)
     elif s.normalization_type == 'AN':
@@ -343,9 +348,7 @@ def run_gru(s):
     if s.normalization_type != "AN":
         #Default and windowed change the seq itself but still require creating lookback frames
         allX = getX(seq_full_norm, s)
-        print allX[5000]
         allY = seq_actual_norm[s.predictionStep-1:]
-        print allY[5000]
     else:
         #AN creates a new array but takes care of lookback internally
         allX= seq_norm[:,0:-s.predictionStep]
@@ -366,7 +369,7 @@ def run_gru(s):
         sess.run(init)
 
         for epoch in tqdm(range(s.epochs)):
-            sess.run(minimize, feed_dict={data: trainX, target: trainY})
+            sess.run(minimize, feed_dict={data: trainX, target: trainY, prob: 0.5})
             #print(psutil.Process(os.getpid()).memory_percent())
             # var = [v for v in tf.trainable_variables() if v.name == "rnn/gru_cell/gates/kernel:0"][0]
             # print sess.run(tf.reduce_min(var))
@@ -406,7 +409,7 @@ def run_gru(s):
                 rnn.fit(trainX, trainY, epochs=s.epochs, batch_size=s.batch_size, verbose=0)
             elif s.implementation == "tf":
                 for epoch in range(s.epochs):
-                    sess.run(minimize, feed_dict={data: trainX, target: trainY})
+                    sess.run(minimize, feed_dict={data: trainX, target: trainY, prob: 0.5})
         if s.implementation == "keras":
             predictedInput[i] = rnn.predict(np.reshape(allX[i], (1,1,x_dims)))
 
@@ -428,7 +431,7 @@ def run_gru(s):
             predictedInput = np.array(an.do_adaptive_denormalize(predictedInput))
 
     dp.saveResultToFile(s.dataSet, predictedInput, targetInput, 'gru', s.predictionStep, s.max_verbosity)
-    skipTrain = error_ignore_first[s.dataSet]
+    skipTrain = s.ignore_for_error
     from plot import computeSquareDeviation
     squareDeviation = computeSquareDeviation(predictedInput, targetInput)
     squareDeviation[:skipTrain] = None

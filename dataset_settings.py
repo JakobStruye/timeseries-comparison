@@ -40,13 +40,13 @@ data_skips = {"nyc_taxi": [1,2],
               }
 
 
-error_ignore_first = {"nyc_taxi": 5005,
-                    "sunspot": 5000,
-                    "dodger": 5000,
-                    "power": 5000,
-                    "energy": 5000,
-                    "retail": 1000,
-                    "reddit": 5000,
-                    "test": 5000,
-                    "rssi": 4500,
-                    "sin": 30000}
+#error_ignore_first = {"nyc_taxi": 5005,
+#                    "sunspot": 5000,
+#                    "dodger": 5000,
+#                    "power": 5000,
+#                    "energy": 5000,
+#                    "retail": 1000,
+#                    "reddit": 5000,
+#                    "test": 5000,
+#                    "rssi": 4500,
+#                    "sin": 30000}
