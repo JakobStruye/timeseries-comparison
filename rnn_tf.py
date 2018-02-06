@@ -763,11 +763,11 @@ class _Linear(object):
     # return res
 
     if len(args) == 1:
-      #res = math_ops.matmul(args[0], binarize(self._weights))
-      res = math_ops.matmul(args[0], self._weights)
+      res = math_ops.matmul(args[0], binarize(self._weights))
+      #res = math_ops.matmul(args[0], self._weights)
     else:
-      #res = math_ops.matmul(array_ops.concat(args, 1), binarize(self._weights))
-      res = math_ops.matmul(array_ops.concat(args, 1), self._weights)
+      res = math_ops.matmul(array_ops.concat(args, 1), binarize(self._weights))
+      #res = math_ops.matmul(array_ops.concat(args, 1), self._weights)
     if self._build_bias:
       res = nn_ops.bias_add(res, self._biases)
     return res

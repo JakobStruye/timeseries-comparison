@@ -2,7 +2,6 @@ import pandas as pd
 import numpy as np
 from sys import argv
 
-predict_step = 5
 
 def get_mae(predicted, actual):
     return np.nanmean(np.abs(predicted - actual))
@@ -15,17 +14,20 @@ def get_mse(predicted, actual):
 def get_nrmse(predicted, actual):
     return np.sqrt(get_mse(predicted, actual)) / np.nanstd(actual)
 
-def get_mape(predicted, actual):
-    return np.nansum(np.abs(predicted - actual)) / np.nansum(np.abs(actual))
+def get_mape(predicted, actual, ignore=None):
+    if not ignore:
+        ignore = 0
+    return np.nansum(np.abs(predicted[ignore:] - actual[ignore:])) / np.nansum(np.abs(actual[ignore:]))
+    #return np.nansum(np.abs(predicted - actual)) / np.nansum(np.abs(actual))
 
-def get_mase(predicted, actual, actual_rolled):
-    nonnan = None
-    for i in range(len(predicted)):
-        if not np.isnan(predicted[i]):
-            nonnan = i
-            break
-
-    return np.nanmean(np.abs(predicted - actual) / get_mae(actual_rolled[nonnan:], actual[nonnan:]))
+def get_mase(predicted, actual, actual_rolled, ignore=None):
+    print predicted.shape
+    if not ignore:
+        for i in range(len(predicted)):
+            if not np.isnan(predicted[i]):
+                ignore = i
+                break
+    return np.nanmean(np.abs(predicted[ignore:] - actual[ignore:]) / get_mae(actual_rolled[ignore:], actual[ignore:]))
 
 
 if __name__ == '__main__':

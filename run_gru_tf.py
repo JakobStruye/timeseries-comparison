@@ -47,6 +47,7 @@ from adaptive_normalization import AdaptiveNormalizer
 
 detailedSets = ["reddit"] #with more than 1 csv
 
+
 index = None
 
 global_step = None
@@ -72,11 +73,9 @@ def readDataSet(dataSet, dataSetDetailed, s):
         df = pd.read_csv(filePath, header=0, skiprows=[1,2],
                          names=['time', 'data', 'timeofday', 'dayofweek'])
         sequence = df['data']
-        dayofweek = df['dayofweek']
-        timeofday = df['timeofday']
 
-        seq = pd.DataFrame(np.array(pd.concat([sequence, timeofday, dayofweek], axis=1)),
-                           columns=['data', 'timeofday', 'dayofweek'])
+        seq = pd.DataFrame(np.array(pd.concat([sequence], axis=1)),
+                           columns=['data'])
 
     elif "sunspot" in dataSet:
         df = pd.read_csv(filePath, header=0, skiprows=[],
@@ -103,8 +102,8 @@ def readDataSet(dataSet, dataSetDetailed, s):
         daysofweek = pd.Series(daysofweek, index=df.index)
         times = pd.Series(times, index=df.index)
         index = df.index
-        seq = pd.DataFrame(np.array(pd.concat([sequence, times, daysofweek], axis=1)),
-                           columns=['data', 'timeofday', 'dayofweek'])
+        seq = pd.DataFrame(np.array(pd.concat([sequence], axis=1)),
+                           columns=['data'])
 
     elif "test" in dataSet:
         df = pd.read_csv(filePath, header=0, skiprows=[],
@@ -208,8 +207,14 @@ class GruSettings:
     season = 48
     max_verbosity = 2
 
+    nTrain = None #chosen automatically if not specified
+
+    ignore_for_error = None
+
     normalization_type = 'default' #'default', 'windowed' or 'AN' (adaptive normalization
     implementation = "tf" #"tf" or "keras"
+    rnn_type = "lstm" #"lstm" or "gru"
+    use_binary = False
 
     dataSet = None
     dataSetDetailed = None
@@ -227,7 +232,8 @@ class GruSettings:
 
     def finalize(self) :
         """ To be called after setting everything"""
-        self.nTrain = max(self.retrain_interval * 2, self.season * 3)
+        if not self.nTrain:
+            self.nTrain = max(self.retrain_interval * 2, self.season * 3)
         if self.batch_size is None:
             #No batch learning
             self.batch_size = self.nTrain
@@ -240,6 +246,8 @@ class GruSettings:
         #The first time at which we can actually predict: need enough headroom for both MASE calculation
         #and filling the lookback window
         self.front_buffer = max(self.season - self.predictionStep, self.lookback)
+        if self.ignore_for_error: #offset for values not predicted
+            self.ignore_for_error-= (self.front_buffer + self.predictionStep - 1)
 
 
 def run_gru(s):
@@ -264,8 +272,13 @@ def run_gru(s):
     np.random.seed(6)
     tf.set_random_seed(6)
     if s.implementation == "keras":
+        if s.use_binary:
+            raise Exception("Binary Keras not implemented")
         rnn = Sequential()
-        rnn.add(GRU(s.nodes, input_shape=(None,x_dims), kernel_initializer='he_uniform'))
+        if s.rnn_type == "lstm":
+            rnn.add(LSTM(s.nodes, input_shape=(None,x_dims), kernel_initializer='he_uniform'))
+        elif s.rnn_type == "gru":
+            rnn.add(GRU(s.nodes, input_shape=(None, x_dims), kernel_initializer='he_uniform'))
 
         #rnn.add(Dropout(0.15))
         rnn.add(Dense(1, kernel_initializer='he_uniform'))
@@ -274,7 +287,14 @@ def run_gru(s):
     elif s.implementation == "tf":
         data = tf.placeholder(tf.float32, [None, 1,  s.lookback])  # Number of examples, number of input, dimension of each input
         target = tf.placeholder(tf.float32, [None, 1])
-        cell = rnn_tf.GRUCell(s.nodes)
+        if s.rnn_type == "lstm" and s.use_binary:
+            cell = rnn_tf.LSTMCell(s.nodes)
+        elif s.rnn_type == "lstm" and not s.use_binary:
+            cell = tf.nn.rnn_cell.LSTMCell(s.nodes)
+        elif s.rnn_type == "gru" and s.use_binary:
+            cell = rnn_tf.GRUCell(s.nodes)
+        elif s.rnn_type == "gru" and not s.use_binary:
+            cell = tf.nn.rnn_cell.GRUCell(s.nodes)
         #cell = rnn_tf.LSTMCell(s.nodes)
         #cell = tf.nn.rnn_cell.GRUCell(s.nodes)
         val, _ = tf.nn.dynamic_rnn(cell, data, dtype=tf.float32)
@@ -299,7 +319,9 @@ def run_gru(s):
 
     dp = DataProcessor()
     if s.normalization_type == 'default':
+        print "PRENORM", sequence['data'][5000]
         (meanSeq, stdSeq) = dp.normalize('data', sequence, s.nTrain)
+        print "POSTNORM", sequence['data'][5000]
     elif s.normalization_type == 'windowed':
         dp.windowed_normalize(sequence)
     elif s.normalization_type == 'AN':
@@ -315,10 +337,15 @@ def run_gru(s):
 
     seq_actual = seq_full[s.front_buffer:] #Leave enough headroom for MASE calculation and lookback
 
+    seq_full_norm = sequence['data']
+    seq_actual_norm = seq_full_norm[s.front_buffer:]
+
     if s.normalization_type != "AN":
         #Default and windowed change the seq itself but still require creating lookback frames
-        allX = getX(seq_full, s)
-        allY = seq_actual[s.predictionStep-1:]
+        allX = getX(seq_full_norm, s)
+        print allX[5000]
+        allY = seq_actual_norm[s.predictionStep-1:]
+        print allY[5000]
     else:
         #AN creates a new array but takes care of lookback internally
         allX= seq_norm[:,0:-s.predictionStep]
@@ -359,6 +386,7 @@ def run_gru(s):
     for i in tqdm(xrange(s.nTrain + s.predictionStep, len(allX)), disable=s.max_verbosity == 0):
         if i % s.retrain_interval == 0 and i > s.numLags+s.nTrain and s.online:
             if s.normalization_type == 'AN':
+
                 predictedInput = np.array(an.do_adaptive_denormalize(predictedInput, therange=(i-s.retrain_interval, i)))
                 latestStart = i
                 an.set_ignore_first_n(i-s.nTrain-s.predictionStep)
@@ -410,7 +438,10 @@ def run_gru(s):
     mae = np.nanmean(np.abs(targetInput-predictedInput))
     if s.max_verbosity > 0:
         print "MAE {}".format(mae)
-    mase = errors.get_mase(predictedInput, targetInput, np.roll(targetInput, s.season))
+    mape = errors.get_mape(predictedInput,targetInput, s.ignore_for_error)
+    if s.max_verbosity > 0:
+            print "MAPE {}".format(mape)
+    mase = errors.get_mase(predictedInput, targetInput, np.roll(targetInput, s.season), s.ignore_for_error)
     if s.max_verbosity > 0:
         print "MASE {}".format(mase)
 

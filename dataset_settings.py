@@ -40,7 +40,7 @@ data_skips = {"nyc_taxi": [1,2],
               }
 
 
-error_ignore_first = {"nyc_taxi": 3000,
+error_ignore_first = {"nyc_taxi": 5005,
                     "sunspot": 5000,
                     "dodger": 5000,
                     "power": 5000,

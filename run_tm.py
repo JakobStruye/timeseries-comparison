@@ -41,6 +41,7 @@ from data_processing import DataProcessor
 
 from htmresearch.support.sequence_learning_utils import *
 from matplotlib import rcParams
+import errors
 rcParams.update({'figure.autolayout': True})
 rcParams['pdf.fonttype'] = 42
 
@@ -399,16 +400,25 @@ if __name__ == "__main__":
 
         #output.write([i], actual_data[i], predict_data_ML[i])
 
+
+
     predData_TM_n_step = np.roll(np.array(predict_data_ML), _options.stepsAhead)
 
     #dp.windowed_denormalize(predData_TM_n_step, actual_data)
 
     dp.saveResultToFile(dataSet, np.reshape(predData_TM_n_step, len(predData_TM_n_step)), np.reshape(actual_data, len(actual_data)), 'TM', prediction_step=_options.stepsAhead)
 
+    ignore_for_error = 5500
 
     nTest = len(actual_data) - nTrain - _options.stepsAhead
     NRMSE_TM = NRMSE(actual_data[nTrain:nTrain+nTest], predData_TM_n_step[nTrain:nTrain+nTest])
     print "NRMSE on test data: ", NRMSE_TM
+    predData_TM_n_step[:nTrain+_options.stepsAhead] = np.nan
+    MAPE_TM = errors.get_mape(np.array(predData_TM_n_step), np.array(actual_data), ignore_for_error)
+    print "MAPE on test data: ", MAPE_TM
+    MASE_TM = errors.get_mase(np.array(predData_TM_n_step), np.array(actual_data), np.roll(np.array(actual_data), 48), ignore_for_error)
+
+    print "MASE on test data: ", MASE_TM
     output.close()
     mae = np.nanmean(np.abs(actual_data[nTrain:nTrain+nTest]-predData_TM_n_step[nTrain:nTrain+nTest]))
     print "MAE {}".format(mae)
