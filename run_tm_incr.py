@@ -349,7 +349,26 @@ if __name__ == "__main__":
     truths = []
     predictions = []
     loop_length = len(df) if limit_to is None else limit_to
-    for i in tqdm(xrange(loop_length)):
+
+
+    repeats = 10
+    start = 0
+    season = 48
+    indices = []
+    while True:
+        for i in range(repeats):
+            for j in range(start, min(start + season, loop_length)):
+
+                indices.append((i,j))
+        if start+season >= loop_length:
+            break
+        start += season
+
+
+
+    for tpl in tqdm(xrange(loop_length * repeats)):
+        repeat = tpl[0]
+        i = tpl[1]
         inputRecord = getInputRecord(df, predictedField, i)
         # tp = model._getTPRegion()
         # tm = tp.getSelf()._tfdr
@@ -385,18 +404,18 @@ if __name__ == "__main__":
         # predictedActiveColumns = np.intersect1d(prePredictiveColumn, activeColumn)
         # predictedActiveColumnsNum.append(len(predictedActiveColumns))
 
+        if repeat == 0:
+            last_prediction = prediction_nstep
+            prediction_nstep = \
+                result.inferences["multiStepBestPredictions"][_options.stepsAhead]
 
-        last_prediction = prediction_nstep
-        prediction_nstep = \
-            result.inferences["multiStepBestPredictions"][_options.stepsAhead]
-
-        truths.append(inputRecord)
+            truths.append(inputRecord)
 
 
-        time_step.append(i)
-        actual_data.append(inputRecord[predictedField])
-        predict_data_ML.append(
-            result.inferences['multiStepBestPredictions'][_options.stepsAhead])
+            time_step.append(i)
+            actual_data.append(inputRecord[predictedField])
+            predict_data_ML.append(
+                result.inferences['multiStepBestPredictions'][_options.stepsAhead])
 
         #output.write([i], actual_data[i], predict_data_ML[i])
 
