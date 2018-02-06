@@ -48,7 +48,7 @@ rcParams['pdf.fonttype'] = 42
 plt.ion()
 
 #SETTINGS
-limit_to = None  # None for no limit
+limit_to = 7000  # None for no limit
 nMultiplePass = 5
 
 
@@ -351,7 +351,7 @@ if __name__ == "__main__":
     loop_length = len(df) if limit_to is None else limit_to
 
 
-    repeats = 10
+    repeats = 5
     start = 0
     season = 48
     indices = []
@@ -365,9 +365,13 @@ if __name__ == "__main__":
         start += season
 
 
-
-    for tpl in tqdm(xrange(loop_length * repeats)):
+    prev_repeat = -1
+    for k in tqdm(xrange(loop_length * repeats)):
+        tpl = indices[k]
         repeat = tpl[0]
+        #if repeat != prev_repeat:
+        #    model._getTPRegion().getSelf().resetSequenceStates()
+        #    prev_repeat = repeat
         i = tpl[1]
         inputRecord = getInputRecord(df, predictedField, i)
         # tp = model._getTPRegion()

@@ -48,7 +48,7 @@ rcParams['pdf.fonttype'] = 42
 plt.ion()
 
 #SETTINGS
-limit_to = None  # None for no limit
+limit_to = 10000  # None for no limit
 nMultiplePass = 5
 
 
