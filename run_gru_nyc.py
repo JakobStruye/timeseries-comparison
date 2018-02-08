@@ -4,10 +4,10 @@ from run_gru_tf import GruSettings, run_gru
 
 settings = GruSettings()
 settings.max_verbosity = 2
-settings.epochs = 1000
+settings.epochs = 500
 settings.online = False
 nodes = 100
-lr = 0.0077
+lr = 0.01# 0.0077
 lookback = 50
 settings.nodes = nodes
 settings.batch_size = None
@@ -20,7 +20,7 @@ settings.retrain_interval = 2500
 settings.ignore_for_error = 5500
 settings.normalization_type = 'default'
 settings.implementation = 'tf'
-settings.rnn_type = 'lstm'
+settings.rnn_type = 'gru'
 settings.use_binary = True
 settings.limit_to = None
 settings.finalize()

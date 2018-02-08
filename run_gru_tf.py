@@ -292,6 +292,7 @@ def run_gru(s):
         target = tf.placeholder(tf.float32, [None, 1])
         if s.rnn_type == "lstm" and s.use_binary:
             cell = rnn_tf.LSTMCell(s.nodes)
+
         elif s.rnn_type == "lstm" and not s.use_binary:
             cell = tf.nn.rnn_cell.LSTMCell(s.nodes)
         elif s.rnn_type == "gru" and s.use_binary:
@@ -301,12 +302,33 @@ def run_gru(s):
 
 
         val, _ = tf.nn.dynamic_rnn(cell, data, dtype=tf.float32)
+        with tf.name_scope('rnn_summaries'):
+            var = val
+            mean = tf.reduce_mean(var)
+            tf.summary.scalar('mean', mean)
+            with tf.name_scope('stddev'):
+                stddev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
+            tf.summary.scalar('stddev', stddev)
+            tf.summary.scalar('max', tf.reduce_max(var))
+            tf.summary.scalar('min', tf.reduce_min(var))
+            tf.summary.histogram('histogram', var)
         val = tf.nn.dropout(val, prob)
         if not s.use_binary:
             dense = tf.layers.dense(val, 1)
         else:
             dense = core_binary.dense(val, 1)
+        with tf.name_scope('dense_summaries'):
+            var = dense
+            mean = tf.reduce_mean(var)
+            tf.summary.scalar('mean', mean)
+            with tf.name_scope('stddev'):
+                stddev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
+            tf.summary.scalar('stddev', stddev)
+            tf.summary.scalar('max', tf.reduce_max(var))
+            tf.summary.scalar('min', tf.reduce_min(var))
+            tf.summary.histogram('histogram', var)
         pred = tf.reshape(dense, (tf.shape(dense)[0], 1))
+        summary = tf.summary.merge_all()
         optimizer = tf.train.AdamOptimizer(learning_rate=s.lr)
         #cost = tf.losses.mean_squared_error(target, pred)
         cost = tf.reduce_mean(tf.abs(target - pred))
@@ -365,11 +387,17 @@ def run_gru(s):
         rnn.fit(trainX, trainY, epochs=s.epochs, batch_size=s.batch_size, verbose=min(s.max_verbosity, 2))
     elif s.implementation == "tf":
         sess = tf.Session()
+        writer = tf.summary.FileWriter("results/", graph=sess.graph)
         init = tf.global_variables_initializer()
         sess.run(init)
 
+        for v in tf.trainable_variables():
+            print v.name
         for epoch in tqdm(range(s.epochs)):
-            sess.run(minimize, feed_dict={data: trainX, target: trainY, prob: 0.5})
+            the_cost, _, summ = sess.run([cost, minimize, summary], feed_dict={data: trainX, target: trainY, prob: 0.5})
+            writer.add_summary(summ, epoch)
+            if epoch % 100 == 0:
+                print the_cost
             #print(psutil.Process(os.getpid()).memory_percent())
             # var = [v for v in tf.trainable_variables() if v.name == "rnn/gru_cell/gates/kernel:0"][0]
             # print sess.run(tf.reduce_min(var))
@@ -384,6 +412,9 @@ def run_gru(s):
             # print sess.run(tf.reduce_min(var))
             # print sess.run(tf.reduce_max(var))
             # print "loop"
+        var = [v for v in tf.trainable_variables() if v.name == "dense/bias:0"]
+        print sess.run(var)
+
 
     latestStart = None
     for i in tqdm(xrange(s.nTrain + s.predictionStep, len(allX)), disable=s.max_verbosity == 0):

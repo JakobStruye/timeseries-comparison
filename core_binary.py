@@ -39,10 +39,14 @@ from tensorflow.python.ops import nn
 from tensorflow.python.ops import standard_ops
 from tensorflow import sign, get_default_graph, clip_by_value
 
+binarize_enabled = False
 def binarize(x):
     """
     Clip and binarize tensor using the straight through estimator (STE) for the gradient.
     """
+    if not binarize_enabled:
+        return x
+
     g = get_default_graph()
 
     with ops.name_scope("Binarized") as name:
@@ -160,6 +164,8 @@ class Dense(base.Layer):
     self.built = True
 
   def call(self, inputs):
+    if binarize_enabled:
+        self.kernel = clip_by_value(self.kernel, -1, 1)
     inputs = ops.convert_to_tensor(inputs, dtype=self.dtype)
     shape = inputs.get_shape().as_list()
     if len(shape) > 2:

@@ -48,7 +48,7 @@ rcParams['pdf.fonttype'] = 42
 plt.ion()
 
 #SETTINGS
-limit_to = 7000  # None for no limit
+limit_to = None  # None for no limit
 nMultiplePass = 5
 
 
@@ -351,9 +351,9 @@ if __name__ == "__main__":
     loop_length = len(df) if limit_to is None else limit_to
 
 
-    repeats = 5
+    repeats = 20
     start = 0
-    season = 48
+    season = 24 * 7
     indices = []
     while True:
         for i in range(repeats):
@@ -374,39 +374,9 @@ if __name__ == "__main__":
         #    prev_repeat = repeat
         i = tpl[1]
         inputRecord = getInputRecord(df, predictedField, i)
-        # tp = model._getTPRegion()
-        # tm = tp.getSelf()._tfdr
-        # prePredictiveCells = tm.getPredictiveCells()
-        # prePredictiveColumn = np.array(list(prePredictiveCells)) / tm.cellsPerColumn
 
         result = model.run(inputRecord)
-        # trueBucketIndex.append(model._getClassifierInputRecord(inputRecord).bucketIndex)
-        #
-        # predSegmentNum.append(len(tm.activeSegments))
-        #
-        # sp = model._getSPRegion().getSelf()._sfdr
-        # spOutput = model._getSPRegion().getOutputData('bottomUpOut')
-        # spActiveCellsCount[spOutput.nonzero()[0]] += 1
-        #
-        # activeDutyCycle = np.zeros(sp.getColumnDimensions(), dtype=np.float32)
-        # sp.getActiveDutyCycles(activeDutyCycle)
-        # overlapDutyCycle = np.zeros(sp.getColumnDimensions(), dtype=np.float32)
-        # sp.getOverlapDutyCycles(overlapDutyCycle)
-        #
-        # tp = model._getTPRegion()
-        # tm = tp.getSelf()._tfdr
-        # tpOutput = tm.infActiveState['t']
-        #
-        # predictiveCells = tm.getPredictiveCells()
-        # predCellNum.append(len(predictiveCells))
-        # predColumn = np.array(list(predictiveCells))/ tm.cellsPerColumn
-        #
-        # patternNZ = tpOutput.reshape(-1).nonzero()[0]
-        # activeColumn = patternNZ / tm.cellsPerColumn
-        # activeCellNum.append(len(patternNZ))
-        #
-        # predictedActiveColumns = np.intersect1d(prePredictiveColumn, activeColumn)
-        # predictedActiveColumnsNum.append(len(predictedActiveColumns))
+
 
         if repeat == 0:
             last_prediction = prediction_nstep

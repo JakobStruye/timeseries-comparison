@@ -47,22 +47,52 @@ from tensorflow.python.ops import variable_scope as vs
 from tensorflow.python.ops import variables as tf_variables
 from tensorflow.python.platform import tf_logging as logging
 from tensorflow.python.util import nest
-from tensorflow import sign, get_default_graph, clip_by_value, float32, int64, ones, zeros, shape
+from tensorflow import sign, get_default_graph, clip_by_value, float32, int64, ones, zeros, shape, maximum, minimum
+from tensorflow.python.framework import sparse_tensor
+from tensorflow.python.ops import gen_math_ops
+
 
 _BIAS_VARIABLE_NAME = "bias"
 _WEIGHTS_VARIABLE_NAME = "kernel"
 
+do_binarize = True
 def binarize(x):
     """
     Clip and binarize tensor using the straight through estimator (STE) for the gradient.
     """
+    if not do_binarize:
+      return x
     g = get_default_graph()
 
     with ops.name_scope("Binarized") as name:
         with g.gradient_override_map({"Sign": "Identity"}):
             x=clip_by_value(x,-1,1)
-            return sign(x)
+            return sign(sign(x) + 0.5) #0 --> 1
 
+def hard_sigmoid(x):
+  if do_binarize:
+    return clip_by_value((x+1) / 2.0, 0, 1)
+  else:
+    return math_ops.sigmoid(x)
+
+def hard_tanh(x):
+  if do_binarize:
+    return clip_by_value(x, -1, 1)
+  else:
+    return math_ops.sigmoid(x)
+
+def linear(x):
+  return x
+
+def sign_nozero(x, name=None):
+
+  with ops.name_scope(name, "Sign", [x]) as name:
+    if isinstance(x, sparse_tensor.SparseTensor):
+      x_sign = gen_math_ops.sign(x.values, name=name)
+      return sparse_tensor.SparseTensor(
+          indices=x.indices, values=x_sign, dense_shape=x.dense_shape)
+    else:
+      return gen_math_ops.sign(x, name=name)
 
 
 def _like_rnncell(cell):
@@ -308,6 +338,7 @@ class GRUCell(RNNCell):
     self._bias_initializer = bias_initializer
     self._gate_linear = None
     self._candidate_linear = None
+    self._activation = hard_tanh
 
   @property
   def state_size(self):
@@ -331,7 +362,8 @@ class GRUCell(RNNCell):
             bias_initializer=bias_ones,
             kernel_initializer=self._kernel_initializer)
 
-    value = math_ops.sigmoid(self._gate_linear([inputs, state]))
+    #value = math_ops.sigmoid(self._gate_linear([inputs, state]))
+    value = hard_sigmoid(self._gate_linear([inputs, state]))
     r, u = array_ops.split(value=value, num_or_size_splits=2, axis=1)
 
     r_state = r * state
@@ -343,9 +375,13 @@ class GRUCell(RNNCell):
             True,
             bias_initializer=self._bias_initializer,
             kernel_initializer=self._kernel_initializer)
+    #c = binarize(self._activation(self._candidate_linear([inputs, r_state])))
+    #c = binarize(self._candidate_linear([inputs, r_state]))
+    #c = self._candidate_linear([inputs, r_state])
+    #c = self._activation(self._candidate_linear([inputs, r_state]))
     c = self._activation(self._candidate_linear([inputs, r_state]))
     new_h = u * state + (1 - u) * c
-    return new_h, new_h
+    return binarize(new_h), new_h
 
 
 
@@ -563,6 +599,7 @@ class LSTMCell(RNNCell):
     self._forget_bias = forget_bias
     self._state_is_tuple = state_is_tuple
     self._activation = activation or math_ops.tanh
+    self._activation = hard_tanh
 
     if num_proj:
       self._state_size = (
@@ -612,6 +649,7 @@ class LSTMCell(RNNCell):
     """
     num_proj = self._num_units if self._num_proj is None else self._num_proj
     sigmoid = math_ops.sigmoid
+    sigmoid = hard_sigmoid
 
     if self._state_is_tuple:
       (c_prev, m_prev) = state
@@ -665,7 +703,7 @@ class LSTMCell(RNNCell):
       m = sigmoid(o + self._w_o_diag * c) * self._activation(c)
     else:
       m = sigmoid(o) * self._activation(c)
-
+    m = binarize(m)
     if self._num_proj is not None:
       if self._linear2 is None:
         scope = vs.get_variable_scope()
@@ -751,6 +789,8 @@ class _Linear(object):
               initializer=bias_initializer)
 
   def __call__(self, args):
+    if do_binarize:
+      self._weights = clip_by_value(self._weights, -1, 1)
     if not self._is_sequence:
       args = [args]
 
