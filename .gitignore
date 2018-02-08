@@ -1,3 +1,5 @@
 .Rhistory
 ESNToolbox/
 tune_nyc1
+results/event*
+prediction/*
