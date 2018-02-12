@@ -235,6 +235,8 @@ class GruSettings:
         """ To be called after setting everything"""
         if not self.nTrain:
             self.nTrain = max(self.retrain_interval * 2, self.season * 3)
+            if self.max_verbosity > 0:
+                print "Automatically set nTrain to", self.nTrain
         if self.batch_size is None:
             #No batch learning
             self.batch_size = self.nTrain
@@ -346,6 +348,7 @@ def run_gru(s):
 
     targetInput = seq_full[s.front_buffer + s.predictionStep - 1:].copy() #grab this now to avoid having to denormalize
 
+
     dp = DataProcessor()
     if s.normalization_type == 'default':
         (meanSeq, stdSeq) = dp.normalize('data', sequence, s.nTrain)
@@ -441,11 +444,18 @@ def run_gru(s):
             elif s.implementation == "tf":
                 for epoch in range(s.epochs):
                     sess.run(minimize, feed_dict={data: trainX, target: trainY, prob: 0.5})
+
+
         if s.implementation == "keras":
             predictedInput[i] = rnn.predict(np.reshape(allX[i], (1,1,x_dims)))
 
         elif s.implementation == "tf":
             predictedInput[i] = sess.run(dense, feed_dict={data: np.reshape(allX[i], (1, 1, x_dims))})
+
+        if i == 7000:
+            print allX[i]
+            print "should be ", (targetInput[i] - meanSeq) / stdSeq
+            print "predicted as ", predictedInput[i]
 
     for i in range(s.nTrain + s.predictionStep):
         predictedInput[i] = np.nan

@@ -42,13 +42,15 @@ from data_processing import DataProcessor
 from htmresearch.support.sequence_learning_utils import *
 from matplotlib import rcParams
 import errors
+from adaptive_normalization import AdaptiveNormalizer
+
 rcParams.update({'figure.autolayout': True})
 rcParams['pdf.fonttype'] = 42
 
 plt.ion()
 
 #SETTINGS
-limit_to = 10000  # None for no limit
+limit_to = 7000  # None for no limit
 nMultiplePass = 5
 
 
@@ -61,17 +63,6 @@ model_dict = {"nyc_taxi": "nyc_taxi_model_params",
               "reddit": "reddit",
               "test": "test"
               }
-
-
-predicted_minmax = {"nyc_taxi": [-1.2,1.2],
-                    "sunspot": [-2,300],
-                    "dodger": [-2,300],
-                    "power": [0,2.0],
-                    "energy": [15.0,40.0],
-                    "retail": [-4000000, 6000000],
-                    "reddit": [-1,1],
-                    "test" : [-2.0,2.0]
-                    }
 
 
 nTrains = {"nyc_taxi": 5000,
@@ -320,7 +311,24 @@ if __name__ == "__main__":
         df = df[:limit_to]
 
     dp = DataProcessor()
-    #dp.windowed_normalize(df, field_name=predictedField, is_data_field=True)
+    # #dp.windowed_normalize(df, field_name=predictedField, is_data_field=True)
+    an = AdaptiveNormalizer(90, 95)
+    an.set_pruning(False)
+    an.set_source_data(df[predictedField], 3000)
+    an.do_ma('s')
+    an.do_stationary()
+    an.remove_outliers()
+    seq_norm = an.do_adaptive_normalize()
+    length = limit_to if limit_to else len(df)
+    print(length)
+    for i in range(len(seq_norm)):
+
+
+        df.loc[str(length - 1 - i):str(length - 1 - i),predictedField] = seq_norm[-i-1][-1]
+
+    print df
+    print df[predictedField]
+
 
     print " run SP through the first %i samples %i passes " %(nMultiplePass, nTrain)
     model = runMultiplePassSPonly(df, model, nMultiplePass, nTrain)
@@ -349,7 +357,8 @@ if __name__ == "__main__":
     truths = []
     predictions = []
     loop_length = len(df) if limit_to is None else limit_to
-    for i in tqdm(xrange(loop_length)):
+
+    for i in tqdm(xrange(90 - 1 , loop_length)):
         inputRecord = getInputRecord(df, predictedField, i)
         # tp = model._getTPRegion()
         # tm = tp.getSelf()._tfdr
@@ -397,30 +406,33 @@ if __name__ == "__main__":
         actual_data.append(inputRecord[predictedField])
         predict_data_ML.append(
             result.inferences['multiStepBestPredictions'][_options.stepsAhead])
-
         #output.write([i], actual_data[i], predict_data_ML[i])
 
 
+    predict_data_ML = np.array(an.do_adaptive_denormalize(np.array(predict_data_ML)))
+    actual_data = np.array(an.do_adaptive_denormalize(np.array(actual_data)))
 
-    predData_TM_n_step = np.roll(np.array(predict_data_ML), _options.stepsAhead)
+    predData_TM_n_step = np.roll(predict_data_ML, _options.stepsAhead)
 
     #dp.windowed_denormalize(predData_TM_n_step, actual_data)
+
 
     dp.saveResultToFile(dataSet, np.reshape(predData_TM_n_step, len(predData_TM_n_step)), np.reshape(actual_data, len(actual_data)), 'TM', prediction_step=_options.stepsAhead)
 
     ignore_for_error = 5500
 
-    nTest = len(actual_data) - nTrain - _options.stepsAhead
-    NRMSE_TM = NRMSE(actual_data[nTrain:nTrain+nTest], predData_TM_n_step[nTrain:nTrain+nTest])
-    print "NRMSE on test data: ", NRMSE_TM
-    predData_TM_n_step[:nTrain+_options.stepsAhead] = np.nan
+    # nTest = len(actual_data) - nTrain - _options.stepsAhead
+    # NRMSE_TM = NRMSE(actual_data[nTrain:nTrain+nTest], predData_TM_n_step[nTrain:nTrain+nTest])
+    # print "NRMSE on test data: ", NRMSE_TM
+    predData_TM_n_step[ignore_for_error] = np.nan
     MAPE_TM = errors.get_mape(np.array(predData_TM_n_step), np.array(actual_data), ignore_for_error)
     print "MAPE on test data: ", MAPE_TM
     MASE_TM = errors.get_mase(np.array(predData_TM_n_step), np.array(actual_data), np.roll(np.array(actual_data), 48), ignore_for_error)
 
     print "MASE on test data: ", MASE_TM
     output.close()
-    mae = np.nanmean(np.abs(actual_data[nTrain:nTrain+nTest]-predData_TM_n_step[nTrain:nTrain+nTest]))
+    #mae = np.nanmean(np.abs(actual_data[nTrain:nTrain+nTest]-predData_TM_n_step[nTrain:nTrain+nTest]))
+    mae = np.nanmean(np.abs(actual_data[ignore_for_error:] - predData_TM_n_step[ignore_for_error:]))
     print "MAE {}".format(mae)
 
 
