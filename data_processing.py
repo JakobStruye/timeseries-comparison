@@ -26,11 +26,20 @@ class DataProcessor():
             for i in range(0,100):
                 newfield.append(np.reshape(scaler.transform(seq_2d[i:i+1]), 1))
         else:
-            sequence[field_name][0:100] = np.reshape(scaler.transform(seq_2d[0:100]), 100)
+            #sequence[field_name][0:100] = np.reshape(scaler.transform(seq_2d[0:100]), 100)
+            mean = np.mean(sequence[field_name][:100]) #new
+            std = np.std(sequence[field_name][:100]) #new
+            sequence[field_name][0:100] = (sequence[field_name][0:100] - mean) / std #new
+            for i in range(0, 100):  #new
+                self.scalers[i] = (mean, std) #new
         for i in tqdm(range(100,length), disable=True):
             scaler = MinMaxScaler(feature_range=(-1, 1))
             scaler.fit(seq_2d[i-99:i+1])
+            mean = np.mean(sequence[field_name][i-99:i+1]) #new
+            std = np.std(sequence[field_name][i-99:i+1]) #new
             newval = np.reshape(scaler.transform(seq_2d[i:i+1]), 1)
+            newval = np.reshape((sequence[field_name][i] - mean) / std, 1) #new
+
             if is_data_field:
                 newfield.append(newval)
                 pass
@@ -38,20 +47,27 @@ class DataProcessor():
                 sequence[field_name][i] = newval
 
             self.scalers[i] = scaler
+            self.scalers[i] = (mean, std) #new
         if is_data_field:
             new_column = Series(newfield, name=field_name, index=sequence.index)
             sequence.update(new_column)
+        print "NORMD", sequence[field_name][10000], len(self.scalers)
 
-    def windowed_denormalize(self, predictedInput, targetInput, only_i=None):
+    def windowed_denormalize(self, predictedInput, targetInput, only_i=None, pred_step=5):
         assert(self.scalers)
+        print "DENORMD", predictedInput[10000], targetInput[10000]
+
         if only_i is None:
             the_range = range(len(predictedInput))
         else:
             the_range = [only_i]
         for i in the_range:
-            scaler = self.scalers[i]
-            predictedInput[i] = np.nan if np.isnan(predictedInput[i]) else scaler.inverse_transform(np.reshape(predictedInput[i:i + 1], (1, 1)))
-            targetInput[i] = np.nan if np.isnan(targetInput[i]) else  scaler.inverse_transform(np.reshape(targetInput[i:i + 1], (1, 1)))
+            index = len(self.scalers) - len(predictedInput) + i - pred_step
+            scaler = self.scalers[index]
+            #predictedInput[i] = np.nan if np.isnan(predictedInput[i]) else scaler.inverse_transform(np.reshape(predictedInput[i:i + 1], (1, 1)))
+            predictedInput[i] = np.nan if np.isnan(predictedInput[i]) else predictedInput[i] * scaler[1] + scaler[0]
+            #targetInput[i] = np.nan if np.isnan(targetInput[i]) else  scaler.inverse_transform(np.reshape(targetInput[i:i + 1], (1, 1)))
+
 
 
     def frame_normalize(self, column, sequence, start, mid, end):
@@ -81,7 +97,9 @@ class DataProcessor():
         mean = np.mean(sequence[column][:nTrain])
         std = np.std(sequence[column][:nTrain])
         sequence[column] = (sequence[column] - mean)/std
+
         return (mean,std)
+
 
     def denormalize(self, column, mean, std):
         return (column * std) + mean

@@ -360,6 +360,7 @@ if __name__ == "__main__":
 
     for i in tqdm(xrange(90 - 1 , loop_length)):
         inputRecord = getInputRecord(df, predictedField, i)
+        print inputRecord
         # tp = model._getTPRegion()
         # tm = tp.getSelf()._tfdr
         # prePredictiveCells = tm.getPredictiveCells()

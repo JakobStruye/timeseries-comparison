@@ -1,34 +1,31 @@
-# ----------------------------------------------------------------------
-# Numenta Platform for Intelligent Computing (NuPIC)
-# Copyright (C) 2016, Numenta, Inc.  Unless you have an agreement
-# with Numenta, Inc., for a separate license for this software code, the
-# following terms and conditions apply:
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU Affero Public License version 3 as
-# published by the Free Software Foundation.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-# See the GNU Affero Public License for more details.
-#
-# You should have received a copy of the GNU Affero Public License
-# along with this program.  If not, see http://www.gnu.org/licenses.
-#
-# http://numenta.org/licenses/
-# ----------------------------------------------------------------------
+import numpy as np
+import random as rn
 
 import os
+os.environ['PYTHONHASHSEED'] = '0' #not sure if needed
+
+rn.seed(1)
+np.random.seed(2)
+
+from scipy import random
+random.seed(3)
+
+import tensorflow as tf
+session_conf = tf.ConfigProto(intra_op_parallelism_threads=1, inter_op_parallelism_threads=1)
+from keras import backend as K
+
+tf.set_random_seed(4)
+
+sess = tf.Session(graph=tf.get_default_graph(), config=session_conf)
+K.set_session(sess)
+
 os.environ['TF_CPP_MIN_LOG_LEVEL']='2' #Suppress build warnings
 
 from optparse import OptionParser
 
-from scipy import random
 
 import pandas as pd
 
-import numpy as np
 from dataset_settings import *
 
 
@@ -37,11 +34,10 @@ from tqdm import tqdm
 import sys
 from data_processing import DataProcessor
 import errors
-import tensorflow as tf
 import rnn_tf
 from keras.models import Sequential
 from keras.layers import Dense, LSTM, Dropout, GRU
-from keras.optimizers import adam, rmsprop
+from keras.optimizers import adam, SGD
 from adaptive_normalization import AdaptiveNormalizer
 import core_binary
 
@@ -142,7 +138,6 @@ def getX(seq_full, s):
 
     #Ignore the final _predictionStep_ here; they have no known y
     col = seq_full[:len(seq_full) - s.predictionStep + 1]
-    print s.front_buffer, "FBUF"
     result_col = []
     counter = 0
     for i in range(s.front_buffer, len(col)):
@@ -277,25 +272,23 @@ def run_gru(s):
 
 
     x_dims = s.lookback
-    random.seed(6)
-    np.random.seed(6)
-    tf.set_random_seed(6)
     if s.implementation == "keras":
         if s.use_binary:
             raise Exception("Binary Keras not implemented")
         rnn = Sequential()
         if s.rnn_type == "lstm":
-            rnn.add(LSTM(s.nodes, input_shape=(None,1), kernel_initializer='he_uniform', return_sequences=True))
+            lstm = LSTM(s.nodes, batch_input_shape=(1, 1, x_dims), kernel_initializer='he_uniform', stateful=True)
+            rnn.add(lstm)
         elif s.rnn_type == "gru":
-            rnn.add(GRU(s.nodes, input_shape=(None, 1), kernel_initializer='he_uniform'))
+            rnn.add(GRU(s.nodes, input_shape=(None, x_dims), kernel_initializer='he_uniform'))
 
-        rnn.add(Dropout(0.5))
+        #rnn.add(Dropout(0.5))
         rnn.add(Dense(1, kernel_initializer='he_uniform'))
-        opt = rmsprop(lr=s.lr)#1e-3)
-        rnn.compile(loss='mae', optimizer=opt)
-        print rnn.summary()
+        #opt = adam(lr=s.lr, decay=0.0)#1e-3)
+        opt = SGD(lr=s.lr)
+        rnn.compile(loss='mse', optimizer=opt)
     elif s.implementation == "tf":
-        data = tf.placeholder(tf.float32, [None, s.lookback,  1])  # Number of examples, number of input, dimension of each input
+        data = tf.placeholder(tf.float32, [None, 1,  s.lookback])  # Number of examples, number of input, dimension of each input
         target = tf.placeholder(tf.float32, [None, 1])
         if s.rnn_type == "lstm" and s.use_binary:
             cell = rnn_tf.LSTMCell(s.nodes)
@@ -378,7 +371,7 @@ def run_gru(s):
 
     seq_actual = seq_full[s.front_buffer:] #Leave enough headroom for MASE calculation and lookback
 
-    seq_full_norm = sequence['data'].values
+    seq_full_norm = sequence['data']
     seq_actual_norm = seq_full_norm[s.front_buffer:]
 
     if s.normalization_type != "AN":
@@ -389,27 +382,25 @@ def run_gru(s):
         #AN creates a new array but takes care of lookback internally
         allX= seq_norm[:,0:-s.predictionStep]
         allY = np.reshape(seq_norm[:,-1], (-1,))
-        # TODO FIX PROPERLY (now rolled too far)
-        too_long = len(allX) - (len(seq_full) - s.front_buffer - s.predictionStep + 1)
-        if too_long > 0:
-            allX = allX[too_long:]
-            allY = allY[too_long:]
 
-    print len(allX), len(allY), s.front_buffer
+    print allY[10000:10005]
     predictedInput = np.full((len(allY),), np.nan) #Initialize all predictions to NaN
 
     trainX = allX[:s.nTrain]
     trainY = allY[:s.nTrain]
-    trainX = np.reshape(trainX, (trainX.shape[0], trainX.shape[1], 1))
+    trainX = np.reshape(trainX, (trainX.shape[0], 1, trainX.shape[1]))
     trainY = np.reshape(trainY, (trainY.shape[0], 1))
-
-    trainX = np.array(seq_actual_norm[:5000-s.predictionStep])
-    trainY = np.array(seq_actual_norm[s.predictionStep:5000])
-    trainX = np.reshape(trainX, (1, trainX.shape[0], 1))
-    trainY = np.reshape(trainY, (1, trainY.shape[0], 1))
-    print np.min(trainX), np.max(trainX), np.min(trainY), np.max(trainY), np.percentile(trainX, 5), np.percentile(trainX, 95), np.percentile(trainY, 5), np.percentile(trainY, 95), np.mean(trainX), np.mean(trainY), np.std(trainX), np.std(trainY)
     if s.implementation == "keras":
-        rnn.fit(trainX, trainY, epochs=s.epochs, batch_size=s.batch_size, verbose=min(s.max_verbosity, 2))
+        for epoch in tqdm(range(s.epochs)):
+            #for i in range(trainX.shape[0]):
+            #    this_in = np.reshape(trainX[i], (1,1,x_dims))
+            #    this_out = np.reshape(trainY[i], (1, x_dims))
+            rnn.fit(trainX, trainY, epochs=1, batch_size=1, verbose=min(s.max_verbosity, 2), shuffle=False)
+            #print "fit", epoch, i
+            lstm.reset_states()
+        print "MINMAX", np.min(trainY), np.max(trainY), np.min(trainX), np.max(trainX)
+        #lstm.batch_input_shape=(1,1,x_dims)
+
     elif s.implementation == "tf":
         sess = tf.Session()
         writer = tf.summary.FileWriter("results/", graph=sess.graph)
@@ -421,12 +412,12 @@ def run_gru(s):
         for epoch in tqdm(range(s.epochs)):
             the_cost, _, summ = sess.run([cost, minimize, summary], feed_dict={data: trainX, target: trainY, prob: 0.5})
             writer.add_summary(summ, epoch)
-            if epoch % 10 == 0:
+            if epoch % 100 == 0:
                 print the_cost
             #print(psutil.Process(os.getpid()).memory_percent())
-            var = [v for v in tf.trainable_variables() if v.name == "rnn/gru_cell/gates/kernel:0"][0]
-            print sess.run(tf.reduce_min(var))
-            print sess.run(tf.reduce_max(var))
+            # var = [v for v in tf.trainable_variables() if v.name == "rnn/gru_cell/gates/kernel:0"][0]
+            # print sess.run(tf.reduce_min(var))
+            # print sess.run(tf.reduce_max(var))
             # var = [v for v in tf.trainable_variables() if v.name == "rnn/gru_cell/gates/bias:0"][0]
             # print sess.run(tf.reduce_min(var))
             # print sess.run(tf.reduce_max(var))
@@ -439,65 +430,75 @@ def run_gru(s):
             # print "loop"
         var = [v for v in tf.trainable_variables() if v.name == "dense/bias:0"]
         print sess.run(var)
-
-    minval = 10
+    # old_rnn = rnn
+    # rnn = Sequential()
+    # lstm = LSTM(s.nodes, batch_input_shape=(1, 12510, x_dims), kernel_initializer='he_uniform', stateful=True)
+    # rnn.add(lstm)
+    # rnn.add(Dropout(0.5))
+    # rnn.add(Dense(1, kernel_initializer='he_uniform'))
+    # old_weights = old_rnn.get_weights()
+    # rnn.set_weights(old_weights)
+    # opt = adam(lr=s.lr, decay=0.0)  # 1e-3)
+    # rnn.compile(loss='mae', optimizer=opt)
+    for i in xrange(0, s.nTrain + s.predictionStep):
+       rnn.predict(np.reshape(allX[i], (1, 1, x_dims)))
+    #predictedInput[s.nTrain + s.predictionStep : len(allX)] =  rnn.predict(np.reshape(allX[s.nTrain + s.predictionStep : len(allX)], (1, 12510, x_dims)))
     latestStart = None
-    # #for i in tqdm(xrange(s.nTrain + s.predictionStep, len(allX)), disable=s.max_verbosity == 0):
-    # for i in tqdm(xrange(0, len(allX)), disable=s.max_verbosity == 0):
-    # #for i in tqdm(xrange(10475, len(allX)), disable=s.max_verbosity == 0):
-    #     if i % s.retrain_interval == 0 and i > s.numLags+s.nTrain and s.online:
-    #         if s.normalization_type == 'AN':
-    #
-    #             predictedInput = np.array(an.do_adaptive_denormalize(predictedInput, therange=(i-s.retrain_interval, i)))
-    #             latestStart = i
-    #             an.set_ignore_first_n(i-s.nTrain-s.predictionStep)
-    #             an.do_ma('s')
-    #             an.do_stationary()
-    #             an.remove_outliers()
-    #             seq_norm = an.do_adaptive_normalize()
-    #
-    #             allX = seq_norm[:, 0:-s.predictionStep]
-    #             allY = np.reshape(seq_norm[:, -1], (-1,))
-    #
-    #         trainX = allX[i-s.nTrain-s.predictionStep:i-s.predictionStep]
-    #         trainY = allY[i-s.nTrain-s.predictionStep:i-s.predictionStep]
-    #         trainX = np.reshape(trainX, (trainX.shape[0], 1, trainX.shape[1]))
-    #         trainY = np.reshape(trainY, (trainY.shape[0], 1))
-    #         if s.implementation == "keras":
-    #             rnn.fit(trainX, trainY, epochs=s.epochs, batch_size=s.batch_size, verbose=0)
-    #         elif s.implementation == "tf":
-    #             for epoch in range(s.epochs):
-    #                 sess.run(minimize, feed_dict={data: trainX, target: trainY, prob: 0.5})
-    #
-    #
-    #     if s.implementation == "keras":
-    #         predictedInput[i] = rnn.predict(np.reshape(allX[i], (1,x_dims,1)))
-    #
-    #     elif s.implementation == "tf":
-    #         predictedInput[i] = sess.run(dense, feed_dict={data: np.reshape(allX[i], (1, x_dims, 1))})
-    #         #if len(allX) > i+5:
-    #         #    predictedInput[i] = allY[i-3000]
-    #
-    #     # if i == 10000:
-    #     #     print allX[i]
-    #     #     print "should be ", (targetInput[i] - meanSeq) / stdSeq
-    #     #     print "predicted as ", predictedInput[i]
-    #
-    # # for i in range(s.nTrain + s.predictionStep):
-    # #     predictedInput[i] = np.nan
-    # print "SMALLEST", minval
-    # # np.set_printoptions(threshold=np.nan, suppress=True)
-    # # print "ALLY START"
-    # # for val in allY:
-    # #     print val
-    # # print "ALLY STOP"
+    for i in tqdm(xrange(s.nTrain + s.predictionStep, len(allX)), disable=s.max_verbosity == 0):
+    #for i in tqdm(xrange(0, len(allX)), disable=s.max_verbosity == 0):
+        if i % s.retrain_interval == 0 and i > s.numLags+s.nTrain and s.online:
+            if s.normalization_type == 'AN':
 
-    predictedInput = rnn.predict(np.reshape(np.array(seq_actual_norm[:-5]), (1, np.array(seq_actual_norm[:-5]).shape[0], 1)))
-    predictedInput = np.reshape(predictedInput, (predictedInput.shape[1],))
-    targetInput = seq_actual_norm[5:]
+                predictedInput = np.array(an.do_adaptive_denormalize(predictedInput, therange=(i-s.retrain_interval, i)))
+                latestStart = i
+                an.set_ignore_first_n(i-s.nTrain-s.predictionStep)
+                an.do_ma('s')
+                an.do_stationary()
+                an.remove_outliers()
+                seq_norm = an.do_adaptive_normalize()
+
+                allX = seq_norm[:, 0:-s.predictionStep]
+                allY = np.reshape(seq_norm[:, -1], (-1,))
+
+            trainX = allX[i-s.nTrain-s.predictionStep:i-s.predictionStep]
+            trainY = allY[i-s.nTrain-s.predictionStep:i-s.predictionStep]
+            trainX = np.reshape(trainX, (trainX.shape[0], 1, trainX.shape[1]))
+            trainY = np.reshape(trainY, (trainY.shape[0], 1))
+            if s.implementation == "keras":
+                rnn.fit(trainX, trainY, epochs=s.epochs, batch_size=s.batch_size, verbose=0)
+            elif s.implementation == "tf":
+                for epoch in range(s.epochs):
+                    sess.run(minimize, feed_dict={data: trainX, target: trainY, prob: 0.5})
+
+
+        if s.implementation == "keras":
+            #if i % 1 == 0:
+            #    rnn.reset_states()
+            predictedInput[i] = rnn.predict(np.reshape(allX[i], (1,1,x_dims)))
+
+        elif s.implementation == "tf":
+            predictedInput[i] = sess.run(dense, feed_dict={data: np.reshape(allX[i], (1, 1, x_dims))})
+            #if len(allX) > i+5:
+            #    predictedInput[i] = allY[i-3000]
+        if 10000 <= i < 10005:
+            print allX[i][-1], predictedInput[i], allY[i], targetInput[i], "RESULT"
+
+        # if i == 10000:
+        #     print allX[i]
+        #     print "should be ", (targetInput[i] - meanSeq) / stdSeq
+        #     print "predicted as ", predictedInput[i]
+
+    for i in range(s.nTrain + s.predictionStep):
+        predictedInput[i] = np.nan
+
+    # np.set_printoptions(threshold=np.nan, suppress=True)
+    # print "ALLY START"
+    # for val in allY:
+    #     print val
+    # print "ALLY STOP"
+
     if s.normalization_type == 'default':
         predictedInput = dp.denormalize(predictedInput, meanSeq, stdSeq)
-        targetInput = dp.denormalize(targetInput, meanSeq, stdSeq)
     elif s.normalization_type == 'windowed':
         dp.windowed_denormalize(predictedInput, targetInput,  pred_step=s.predictionStep)
     elif s.normalization_type == 'AN':
@@ -507,11 +508,12 @@ def run_gru(s):
             predictedInput = np.array(an.do_adaptive_denormalize(predictedInput))
         if an.pruning:
             targetInput = np.delete(targetInput, an.deletes)
-    print len(predictedInput), len(targetInput), "LENS"
+
     #TEMP SANITY CHECK
     #print predictedInput[7005 - s.front_buffer - s.predictionStep +1]
     #print predictedInput[7006 - s.front_buffer - s.predictionStep + 1]
     dp.saveResultToFile(s.dataSet, predictedInput, targetInput, 'gru', s.predictionStep, s.max_verbosity)
+    print targetInput[10085], "TARGET"
     skipTrain = s.ignore_for_error
     from plot import computeSquareDeviation
     squareDeviation = computeSquareDeviation(predictedInput, targetInput)

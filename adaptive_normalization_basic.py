@@ -27,7 +27,7 @@ class AdaptiveNormalizer:
         """
         self.k = k
         self.w = w
-        print "AN", self.k, self.w
+
         self.multiplier = 1.5
 
         self.pruning = True
@@ -93,8 +93,10 @@ class AdaptiveNormalizer:
     def get_stationary(self):
         assert(self.ma) #must be set by now
 
-        r = [self.data_limited[int(math.ceil(i / self.w) + (i - 1) % self.w) - 1] / self.ma[int(math.ceil(i / self.w)) - 1] for i in
-             range(1 , self.dsw_count * self.w + 1)]
+        r = [self.data_limited[int(math.ceil(i / self.w) + (i - 1) % self.w) - 1] for i in
+            range(1 , self.dsw_count * self.w + 1)]
+        #r = [self.data_limited[int(math.ceil(i / self.w) + (i - 1) % self.w) - 1] / self.ma[int(math.ceil(i / self.w)) - 1] for i in
+        #     range(1 , self.dsw_count * self.w + 1)]
 
         r = np.reshape(r, (self.dsw_count, self.w))
         return r
@@ -152,7 +154,7 @@ class AdaptiveNormalizer:
         self.r_test = self.r[self.dsw_train_count:]
 
 
-    def get_thresholds(self, mult):
+    def get_thresholds(self):
         """
         Gets the pruning/normalizing thresholds based on the training set DSWs
         :return: The thresholds
@@ -161,8 +163,8 @@ class AdaptiveNormalizer:
         q1 = np.percentile(r_flat, 25)
         q3 = np.percentile(r_flat, 75)
         iqr = q3-q1
-        thresh_bottom = q1 - mult*iqr
-        thresh_top = q3 + mult * iqr
+        thresh_bottom = q1 - self.multiplier*iqr
+        thresh_top = q3 + self.multiplier * iqr
         return (thresh_bottom, thresh_top)
 
 
@@ -172,19 +174,9 @@ class AdaptiveNormalizer:
         :return:
         """
         if self.pruning:
-            (thresh_bottom, thresh_top) = self.get_thresholds(self.multiplier * 2.0)
+            (thresh_bottom, thresh_top) = self.get_thresholds()
             #todo ignore n first
             self.r_pruned = np.array([self.r_train[i] if np.min(self.r_train[i]) >= thresh_bottom and np.max(self.r_train[i]) <= thresh_top else np.full([self.w], np.nan) for i in range(self.r_train.shape[0]) ])
-            self.deletes = []
-            for i in range(self.r_pruned.shape[0]) :
-                if np.isnan(self.r_pruned[i][0]):
-                    self.deletes.append(i)
-            print self.deletes
-            self.r_pruned = np.delete(self.r_pruned, self.deletes, 0)
-            self.ma = np.delete(self.ma, self.deletes, 0)
-            self.dsw_count -= len(self.deletes)
-
-
         else:
             self.r_pruned = np.vstack((self.r_ignore, self.r_train))
 
@@ -194,19 +186,25 @@ class AdaptiveNormalizer:
         Normalizes all DSWs, with only the training set guaranteed to be in [-1,1]
         :return:
         """
-        (thresh_bottom, thresh_top) = self.get_thresholds(self.multiplier)
+        (thresh_bottom, thresh_top) = self.get_thresholds()
         self.min_r = max(thresh_bottom, np.min(self.r_train))
         self.max_r = min(thresh_top, np.max(self.r_train))
 
-        self.mean = np.mean(self.r_train)
-        self.std = np.std(self.r_train)
-
         def do_norm(val):
-            #return 2 * ((val - self.min_r) / (self.max_r - self.min_r)) - 1
-            return (val - self.mean) / self.std
+            return 2 * ((val - self.min_r) / (self.max_r - self.min_r)) - 1
         do_norm = np.vectorize(do_norm, otypes=[np.float])
-        normalized = do_norm(np.vstack((self.r_pruned, self.r_test)))
-        print normalized
+        #normalized = do_norm(np.vstack((self.r_pruned, self.r_test)))
+        normalized = np.vstack((self.r_pruned, self.r_test))
+        self.norms = []
+        new_normalized = []
+        for i in range(self.dsw_count):
+
+            mean = np.mean(normalized[i][:-5])
+            std = np.std(normalized[i][:-5])
+            new_normalized.append(np.divide((normalized[i] - mean), std))
+
+            self.norms.append((mean, std))
+        normalized = np.array(new_normalized)
         return normalized
 
     def do_adaptive_denormalize(self, r_norm, offset=0, therange=None):
@@ -222,8 +220,10 @@ class AdaptiveNormalizer:
         for i in range(0 if not therange else therange[0], r_norm.shape[0] if not therange else therange[1]):
 
             #val = ((r_norm[i] + 1.0) / 2.) * (self.max_r - self.min_r) + self.min_r
-            val = (r_norm[i] * self.std) + self.mean
-            denorm[i] = val * self.ma[i+offset]
+            val = r_norm[i] * self.norms[i][1] + self.norms[i][0]
+
+            denorm[i] = val
+            denorm[i] = val# * self.ma[i+offset]
 
 
         return denorm

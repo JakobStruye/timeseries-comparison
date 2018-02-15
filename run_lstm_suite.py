@@ -47,7 +47,7 @@ def readDataSet(dataSet, noise=0):
   if dataSet == 'nyc_taxi' or dataSet == 'nyc_taxi_perturb' or dataSet == 'nyc_taxi_perturb_baseline':
     seq = pd.read_csv(filePath, header=0, skiprows=[1, 2], names=['time', 'data', 'timeofday', 'dayofweek'])
     seq['time'] = pd.to_datetime(seq['time'])
-
+    print "TEST", seq['data'][10086], len(seq['data'])
     if noise > 0:
       for i in xrange(len(seq)):
         value = seq['data'][i]
@@ -171,8 +171,9 @@ class NYCTaxiDataset(Dataset):
       #   pd.Series((self.sequence['data'] - self.meanSeq)/self.stdSeq, index=self.sequence.index)
 
     networkInput = self.sequence[['normalizedData',
-                              'normalizedTimeofday',
-                              'normalizedDayofweek']].values.tolist()
+                              #'normalizedTimeofday',
+                              #'normalizedDayofweek'
+                                  ]].values.tolist()
 
     if output_encoding == None:
       targetPrediction = self.sequence['normalizedData'].values.tolist()
@@ -197,7 +198,7 @@ class Suite(PyExperimentSuite):
   def reset(self, params, repetition):
     print params
 
-    self.nDimInput = 3
+    self.nDimInput = 1#3
     self.inputEncoder = PassThroughEncoder()
 
     if params['output_encoding'] == None:
@@ -308,12 +309,15 @@ class Suite(PyExperimentSuite):
         train = (self.dataset.sequence['time'][iteration].dayofweek==0 and
                   self.dataset.sequence['time'][iteration].hour == 0 and
                   self.dataset.sequence['time'][iteration].minute == 0)
+        train = True
+        if train:
+          params['train_every_week'] = False
 
       if params['online_training']:
         train = True
-    if verbose:
-      print
-      print "iteration: ", iteration, " time: ", self.dataset.sequence['time'][iteration]
+    # if verbose:
+    #   print
+    #   print "iteration: ", iteration, " time: ", self.dataset.sequence['time'][iteration]
 
     if train:
       if verbose:
@@ -339,8 +343,10 @@ class Suite(PyExperimentSuite):
     else:
       predictions = None
 
-    if verbose:
-      print " test at :", iteration,
+    #if verbose:
+    #  print " test at :", iteration,
+    if iteration == 10085:
+      print symbol, output[0], predictions, self.dataset.meanSeq, self.dataset.stdSeq
 
     if iteration == params['perturb_after']:
       if verbose:

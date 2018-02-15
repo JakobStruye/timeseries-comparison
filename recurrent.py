@@ -673,6 +673,7 @@ class RNN(Layer):
         return inputs, initial_state, constants
 
     def reset_states(self, states=None):
+        #print("STATE_RESET")
         if not self.stateful:
             raise AttributeError('Layer must be stateful.')
         batch_size = self.input_spec[0].shape[0]
@@ -1285,6 +1286,11 @@ class GRUCell(Layer):
         self.built = True
 
     def call(self, inputs, states, training=None):
+        #print("CALL")
+        try:
+            print(K.get_session().run(states)[0])
+        except Exception:
+            pass
         h_tm1 = states[0]  # previous memory
 
         if 0 < self.dropout < 1 and self._dropout_mask is None:
