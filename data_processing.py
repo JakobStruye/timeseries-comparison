@@ -9,96 +9,60 @@ import csv
 
 class DataProcessor():
 
+    window_size = 4
 
+    def windowed_normalize(self, sequence, columns = None):
+        self.scaler_dicts = dict()
+        if columns is None:
+            columns = range(sequence.shape[1])
+        for col in columns:
 
-    def windowed_normalize(self, sequence, field_name='data', is_data_field=False, length=None, print_progress=False):
-        if length is None:
-            length = len(sequence[field_name])
-        self.scalers = dict()
-        scaler = MinMaxScaler(feature_range=(-1, 1))
-        seq_2d = np.copy(sequence[field_name].values.reshape(len(sequence[field_name]), 1))
-        scaler.fit(seq_2d[0:100])
-        for i in range(0,100):
-            self.scalers[i] = scaler
-        newfield = []
+            length = len(sequence[:,col])
+            scalers = dict()
+            self.scaler_dicts[col] = scalers
 
-        if is_data_field:
-            for i in range(0,100):
-                newfield.append(np.reshape(scaler.transform(seq_2d[i:i+1]), 1))
-        else:
-            #sequence[field_name][0:100] = np.reshape(scaler.transform(seq_2d[0:100]), 100)
-            mean = np.mean(sequence[field_name][:100]) #new
-            std = np.std(sequence[field_name][:100]) #new
-            sequence[field_name][0:100] = (sequence[field_name][0:100] - mean) / std #new
-            for i in range(0, 100):  #new
-                self.scalers[i] = (mean, std) #new
-        for i in tqdm(range(100,length), disable=True):
-            scaler = MinMaxScaler(feature_range=(-1, 1))
-            scaler.fit(seq_2d[i-99:i+1])
-            mean = np.mean(sequence[field_name][i-99:i+1]) #new
-            std = np.std(sequence[field_name][i-99:i+1]) #new
-            newval = np.reshape(scaler.transform(seq_2d[i:i+1]), 1)
-            newval = np.reshape((sequence[field_name][i] - mean) / std, 1) #new
+            col_orig = sequence[:,col].copy()
 
-            if is_data_field:
-                newfield.append(newval)
-                pass
-            else:
-                sequence[field_name][i] = newval
+            mean = np.mean(col_orig[:self.window_size]) #new
+            std = np.std(col_orig[:self.window_size]) #new
+            sequence[0:self.window_size, col] = (sequence[0:self.window_size, col] - mean) / std #new
+            for i in range(0, self.window_size):  #new
+                scalers[i] = (mean, std) #new
+            for i in tqdm(range(self.window_size,length), disable=True):
+                #scaler = MinMaxScaler(feature_range=(-1, 1))
+                #scaler.fit(seq_2d[i-99:i+1])
+                mean = np.mean(col_orig[i-self.window_size+1:i+1]) #new
+                std = np.std(col_orig[i-self.window_size+1:i+1]) #new
 
-            self.scalers[i] = scaler
-            self.scalers[i] = (mean, std) #new
-        if is_data_field:
-            new_column = Series(newfield, name=field_name, index=sequence.index)
-            sequence.update(new_column)
-        print "NORMD", sequence[field_name][10000], len(self.scalers)
+                #newval = np.reshape(scaler.transform(seq_2d[i:i+1]), 1)
+                if i == 9504:
+                    print mean, std, sequence[i]
+                newval = np.reshape((sequence[i, col] - mean) / std, 1) #new
 
-    def windowed_denormalize(self, predictedInput, targetInput, only_i=None, pred_step=5):
-        assert(self.scalers)
-        print "DENORMD", predictedInput[10000], targetInput[10000]
+                sequence[i, col] = newval
 
-        if only_i is None:
-            the_range = range(len(predictedInput))
-        else:
-            the_range = [only_i]
+                #scalers[i] = scaler
+                scalers[i] = (mean, std) #new
+
+    def windowed_denormalize(self, predictedInput, pred_step=5):
+        assert(self.scaler_dicts)
+        the_range = range(len(predictedInput))
         for i in the_range:
-            index = len(self.scalers) - len(predictedInput) + i - pred_step
-            scaler = self.scalers[index]
+            index = len(self.scaler_dicts[0]) - len(predictedInput) + i - pred_step
+            scaler = self.scaler_dicts[0][index]
             #predictedInput[i] = np.nan if np.isnan(predictedInput[i]) else scaler.inverse_transform(np.reshape(predictedInput[i:i + 1], (1, 1)))
             predictedInput[i] = np.nan if np.isnan(predictedInput[i]) else predictedInput[i] * scaler[1] + scaler[0]
             #targetInput[i] = np.nan if np.isnan(targetInput[i]) else  scaler.inverse_transform(np.reshape(targetInput[i:i + 1], (1, 1)))
 
 
 
-    def frame_normalize(self, column, sequence, start, mid, end):
-        print "Normalize from", start, "to", end
-        mean = np.mean(sequence[column][start:mid])
-        std = np.std(sequence[column][start:mid])
-        sequence[column][start:end] = (sequence[column][start:end] - mean)/std
-        return (mean,std)
-
-    def frame_denormalize(self, column, sequence, mean, std, start, end):
-        start = max(0, start)
-        print "Denormalize from", start, "to", end
-        sequence[column][start:end] = (sequence[column][start:end] * std) + mean
-
-    def frame_denormalize_col(self, column, mean, std, start, end):
-        print "Col denormalize from", start, "to", end
-        column[start:end] = (column[start:end] * std) + mean
-
-    # def normalize(self, column, sequence):
-    #     mean = np.mean(sequence[:,column])
-    #     std = np.std(sequence[:,column])
-    #     sequence[:,column] = (sequence[:,column] - mean)/std
-    #     print sequence[0,0]
-    #     return (mean,std)
-
-
-    def normalize(self, sequence, nTrain):
+    def normalize(self, sequence, nTrain, columns=None):
+        if columns is None:
+            columns = range(sequence.shape[1])
         #Mean and std per column!
-        mean = np.mean(sequence[:,][:nTrain], axis=0)
-        std = np.std(sequence[:,][:nTrain], axis=0)
-        sequence[:,] = (sequence[:,] - mean)/std
+        mean = np.mean(sequence[:,columns][:nTrain], axis=0)
+        std = np.std(sequence[:,columns][:nTrain], axis=0)
+        sequence[:,columns] = (sequence[:,columns] - mean)/std
 
         return (mean,std)
 
@@ -134,7 +98,3 @@ class DataProcessor():
             csvWriter.writerow([i, targetInput[i], '%.13f' % predictedInput[i]])
 
         outputFile.close()
-
-
-
-    #ADAPTIVE NORMALIZATION

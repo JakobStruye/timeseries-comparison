@@ -80,23 +80,25 @@ class AdaptiveNormalizer:
 
     def get_simple_moving_avg(self):
         #MA[i] = avg(data[i:i+k])
-        new_data = [np.mean(self.data[i:i+self.k]) for i in range(self.ma_size)]
+        new_data = [np.mean(self.data[i:i+self.k], axis=0) for i in range(self.ma_size)]
         return new_data
 
     def get_exponential_moving_avg(self):
         #MA[0] = avg[data[0:k], MA[i] = 1-alpha * MA[i-1] + alpha * data[i+k-1]
-        new_data = [np.mean(self.data[0:self.k])]
+        new_data = [np.mean(self.data[0:self.k], axis=0)]
         for i in range(1, self.ma_size):
             new_data.append((1 - self.alpha) * new_data[-1] + self.alpha * self.data[i+self.k-1])
         return new_data
 
     def get_stationary(self):
         assert(self.ma) #must be set by now
+        print "MA DIM", np.array(self.ma[0]).shape
 
         r = [self.data_limited[int(math.ceil(i / self.w) + (i - 1) % self.w) - 1] / self.ma[int(math.ceil(i / self.w)) - 1] for i in
              range(1 , self.dsw_count * self.w + 1)]
 
-        r = np.reshape(r, (self.dsw_count, self.w))
+        r = np.array(r)
+        r = np.reshape(r, (self.dsw_count, self.w, r.shape[1]))
         return r
 
     def get_level_of_adjustment_row(self, ma, row_index):
@@ -197,16 +199,17 @@ class AdaptiveNormalizer:
         (thresh_bottom, thresh_top) = self.get_thresholds(self.multiplier)
         self.min_r = max(thresh_bottom, np.min(self.r_train))
         self.max_r = min(thresh_top, np.max(self.r_train))
-
-        self.mean = np.mean(self.r_train)
-        self.std = np.std(self.r_train)
+        print "DOMEAN", self.r_train.shape
+        self.mean = np.mean(self.r_train, axis=(0,1))
+        self.std = np.std(self.r_train, axis=(0,1))
+        print self.mean.shape, self.std.shape, "means"
 
         def do_norm(val):
             #return 2 * ((val - self.min_r) / (self.max_r - self.min_r)) - 1
             return (val - self.mean) / self.std
-        do_norm = np.vectorize(do_norm, otypes=[np.float])
         normalized = do_norm(np.vstack((self.r_pruned, self.r_test)))
         print normalized
+
         return normalized
 
     def do_adaptive_denormalize(self, r_norm, offset=0, therange=None):
@@ -219,11 +222,13 @@ class AdaptiveNormalizer:
         :return: Copy of the provided array with all requested values denormalized
         """
         denorm = r_norm.copy()
+        print len(self.ma), therange, r_norm.shape
+        print self.mean.shape, self.std.shape, self.ma[10].shape, denorm.shape, "DENORMMM"
         for i in range(0 if not therange else therange[0], r_norm.shape[0] if not therange else therange[1]):
 
             #val = ((r_norm[i] + 1.0) / 2.) * (self.max_r - self.min_r) + self.min_r
-            val = (r_norm[i] * self.std) + self.mean
-            denorm[i] = val * self.ma[i+offset]
+            val = (r_norm[i] * self.std[0]) + self.mean[0]
+            denorm[i] = val * self.ma[i+offset][0]
 
 
         return denorm

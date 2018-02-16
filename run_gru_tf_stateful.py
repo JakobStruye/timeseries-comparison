@@ -342,7 +342,6 @@ def run_gru(s):
 
     #Get rid of unneeded columns
     sequence = sequence[:,0:s.feature_count]
-    print sequence.shape
 
     """
     We need to leave some values unpredicted in front so that
@@ -362,10 +361,12 @@ def run_gru(s):
 
     dp = DataProcessor()
     if s.normalization_type == 'default':
-        (meanSeq, stdSeq) = dp.normalize(sequence, s.nTrain) #TODO dims>1
+        (meanSeq, stdSeq) = dp.normalize(sequence, s.nTrain)
     elif s.normalization_type == 'windowed':
-        dp.windowed_normalize(sequence) #TODO
-    elif s.normalization_type == 'AN': #TODO
+        dp.windowed_normalize(sequence, columns=[0])
+        if s.feature_count > 1:
+            dp.normalize(sequence, s.nTrain, columns=range(1,s.feature_count))
+    elif s.normalization_type == 'AN':
         an = AdaptiveNormalizer(s.lookback, s.lookback + s.predictionStep)
         an.set_pruning(False)
         an.set_source_data(sequence, s.nTrain)
@@ -373,6 +374,12 @@ def run_gru(s):
         an.do_stationary()
         an.remove_outliers()
         seq_norm = an.do_adaptive_normalize()
+        if s.feature_count > 1:
+            dp.normalize(sequence, s.nTrain, columns=range(1,s.feature_count))
+            start = sequence.shape[0] - seq_norm.shape[0] - s.lookback - s.predictionStep +  1
+            for i in range(seq_norm.shape[0]):
+                seq_norm[i,:,1:s.feature_count] = sequence[start+i:start+i+seq_norm.shape[1], 1:s.feature_count]
+
     else:
         raise Exception("Unsupported normalization type: " + s.normalization_type)
 
@@ -387,8 +394,7 @@ def run_gru(s):
     else:
         #AN creates a new array but takes care of lookback internally
         allX= seq_norm[:,0:-s.predictionStep]
-        allY = np.reshape(seq_norm[:,-1], (-1,))
-
+        allY = np.reshape(seq_norm[:,-1,0], (-1,))
     predictedInput = np.full((len(allY),), np.nan) #Initialize all predictions to NaN
 
 
@@ -408,8 +414,6 @@ def run_gru(s):
         init = tf.global_variables_initializer()
         sess.run(init)
 
-        for v in tf.trainable_variables():
-            print v.name
         for epoch in tqdm(range(s.epochs)):
             the_cost, _, summ = sess.run([cost, minimize, summary], feed_dict={data: trainX, target: trainY, prob: 0.5})
             writer.add_summary(summ, epoch)
@@ -470,11 +474,8 @@ def run_gru(s):
             up_to = min(allX.shape[0], i - (i % s.retrain_interval) + s.retrain_interval) if s.online else allX.shape[0]
             start_time = time.time()
             new_predicts = rnn.predict(np.reshape(allX[:up_to], (1, up_to, s.x_dims)))
-            print (time.time() - start_time)
-            print predictedInput.shape
             new_predicts = np.reshape(new_predicts, (new_predicts.shape[1],))
             predictedInput[i:up_to] = new_predicts[i:up_to]
-            print "PREDICTED FROM", i, "TO", up_to
 
 
 
@@ -486,7 +487,7 @@ def run_gru(s):
     if s.normalization_type == 'default':
         predictedInput = dp.denormalize(predictedInput, meanSeq[0], stdSeq[0])
     elif s.normalization_type == 'windowed':
-        dp.windowed_denormalize(predictedInput, targetInput,  pred_step=s.predictionStep)
+        dp.windowed_denormalize(predictedInput,  pred_step=s.predictionStep)
     elif s.normalization_type == 'AN':
         if latestStart:
             predictedInput = np.array(an.do_adaptive_denormalize(predictedInput, therange=(latestStart, len(predictedInput))))

@@ -28,7 +28,7 @@ from pybrain.datasets import SequentialDataSet
 from pybrain.tools.shortcuts import buildNetwork
 from pybrain.structure.modules import LSTMLayer
 from pybrain.supervised import  BackpropTrainer
-from pybrain_rpropminus import RPropMinusTrainer
+from pybrain.supervised.trainers import RPropMinusTrainer
 from pybrain.structure.modules import SigmoidLayer
 
 from nupic.encoders.scalar import ScalarEncoder as NupicScalarEncoder
