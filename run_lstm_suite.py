@@ -27,7 +27,8 @@ from htmresearch.support.expsuite import PyExperimentSuite
 from pybrain.datasets import SequentialDataSet
 from pybrain.tools.shortcuts import buildNetwork
 from pybrain.structure.modules import LSTMLayer
-from pybrain.supervised import RPropMinusTrainer, BackpropTrainer
+from pybrain.supervised import  BackpropTrainer
+from pybrain_rpropminus import RPropMinusTrainer
 from pybrain.structure.modules import SigmoidLayer
 
 from nupic.encoders.scalar import ScalarEncoder as NupicScalarEncoder
@@ -269,6 +270,7 @@ class Suite(PyExperimentSuite):
     for i in xrange(len(networkInput)):
       ds.addSample(self.inputEncoder.encode(networkInput[i]),
                    self.outputEncoder.encode(targetPrediction[i]))
+    mycount  = 0
 
     if params['num_epochs'] > 1:
       trainer = RPropMinusTrainer(self.net, dataset=ds, verbose=verbose)

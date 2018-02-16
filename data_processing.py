@@ -86,17 +86,19 @@ class DataProcessor():
         print "Col denormalize from", start, "to", end
         column[start:end] = (column[start:end] * std) + mean
 
-    def normalize(self, column, sequence):
-        mean = np.mean(sequence[column])
-        std = np.std(sequence[column])
-        sequence[column] = (sequence[column] - mean)/std
-        return (mean,std)
+    # def normalize(self, column, sequence):
+    #     mean = np.mean(sequence[:,column])
+    #     std = np.std(sequence[:,column])
+    #     sequence[:,column] = (sequence[:,column] - mean)/std
+    #     print sequence[0,0]
+    #     return (mean,std)
 
 
-    def normalize(self, column, sequence, nTrain):
-        mean = np.mean(sequence[column][:nTrain])
-        std = np.std(sequence[column][:nTrain])
-        sequence[column] = (sequence[column] - mean)/std
+    def normalize(self, sequence, nTrain):
+        #Mean and std per column!
+        mean = np.mean(sequence[:,][:nTrain], axis=0)
+        std = np.std(sequence[:,][:nTrain], axis=0)
+        sequence[:,] = (sequence[:,] - mean)/std
 
         return (mean,std)
 

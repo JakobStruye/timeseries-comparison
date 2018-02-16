@@ -17,29 +17,8 @@ def get_nrmse(predicted, actual):
 def get_mape(predicted, actual, ignore=None):
     if not ignore:
         ignore = 0
-    print np.abs(predicted[ignore:] - actual[ignore:]).shape
-    print  actual[ignore:].shape
-    print (np.abs(predicted[ignore:] - actual[ignore:]) / actual[ignore:]).shape
-    print np.abs(predicted[ignore:] - actual[ignore:]) / actual[ignore:]
-    max = 0
-    max_index = -0
-    count = 0
-    othercount = 0
-    for i in range((np.abs(predicted[ignore:] - actual[ignore:]) / actual[ignore:]).shape[0]):
-        value = (np.abs(predicted[ignore:] - actual[ignore:]) / actual[ignore:])[i]
-        if value > 1:
-            count += 1
-            if max < value:
-                max = value
-                max_index = i
-        else:
-            othercount += 1
-
-    print max, count, othercount
-    print max_index, predicted[ignore+max_index],actual[ignore+max_index]
     other = np.nanmean(np.abs(predicted[ignore:] - actual[ignore:]) / actual[ignore:])
     print other, "vs", np.nansum(np.abs(predicted[ignore:] - actual[ignore:])) / np.nansum(np.abs(actual[ignore:]))
-    print type(actual[12000])
 
     return np.nansum(np.abs(predicted[ignore:] - actual[ignore:])) / np.nansum(np.abs(actual[ignore:]))
 

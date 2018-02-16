@@ -1,1 +1,1 @@
-grep reset | sed 's/}/ /g' | sed 's/,/ /g'| awk '{ print $12 " " $6 }'
+grep reset | sed 's/}/ /g' | sed 's/,/ /g'| awk '{ print $14 " " $6 }'
