@@ -33,8 +33,8 @@ from data_processing import DataProcessor
 import errors
 import rnn_tf
 from keras.models import Sequential
-from keras.layers import Dense, Dropout
-from recurrent import LSTM, GRU
+from keras.layers import Dense, Dropout, GRU
+from recurrent import LSTM#, GRU
 from keras.optimizers import adam
 from keras.callbacks import TensorBoard
 from adaptive_normalization import AdaptiveNormalizer
@@ -235,6 +235,8 @@ class GruSettings:
             self.nTrain += self.batch_size - (self.nTrain % self.batch_size)
         #self.numLags = 0.25 * self.nTrain #Don't immediately retrain
 
+        if not self.lookback:
+            self.lookback_as_features = False
         #The first time at which we can actually predict: need enough headroom for both MASE calculation
         #and filling the lookback window
         self.front_buffer = max(self.season - self.predictionStep, self.lookback)

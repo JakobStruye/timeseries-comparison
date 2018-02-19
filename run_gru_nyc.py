@@ -14,7 +14,7 @@ settings.lr = lr
 settings.loss = 'mae'
 settings.stateful=False
 settings.lookback = None #None to not use lookbacks
-settings.lookback_as_features=True #Considers each lookback value a separate feature if True, ignored if lookback is None
+settings.lookback_as_features=False #Considers each lookback value a separate feature if True, ignored if lookback is None
 settings.feature_count = 1 #Uses the first `feature_count` selected columns as features, ignored if `lookback_as_features`
 settings.predictionStep = 5
 settings.season = 48
@@ -23,7 +23,7 @@ settings.nTrain = 3000
 settings.ignore_for_error = 5500
 settings.normalization_type = 'default'
 settings.implementation = 'keras'
-settings.rnn_type = 'gru'
+settings.rnn_type = 'lstm'
 settings.use_binary = False
 settings.limit_to = 7000
 settings.finalize()
