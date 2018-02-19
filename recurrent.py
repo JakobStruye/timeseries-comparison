@@ -21,7 +21,25 @@ from keras.utils.generic_utils import has_arg
 from keras.legacy.layers import Recurrent
 from keras.legacy import interfaces
 
-import tensorflow as tf
+from tensorflow import sign, get_default_graph, clip_by_value
+from tensorflow.python.framework import ops
+
+from binary_ops import binarize, binary_sigmoid, binary_tanh
+
+do_binarize = True
+# def binarize(x):
+#     """
+#     Clip and binarize tensor using the straight through estimator (STE) for the gradient.
+#     """
+#     if not do_binarize:
+#       return x
+#     g = get_default_graph()
+#
+#     with ops.name_scope("Binarized") as name:
+#         with g.gradient_override_map({"Sign": "Identity"}):
+#             x=clip_by_value(x,-1,1)
+#             return sign(sign(x) + 0.5) #0 --> 1
+
 
 
 class StackedRNNCells(Layer):
@@ -133,7 +151,7 @@ class StackedRNNCells(Layer):
 
     @classmethod
     def from_config(cls, config, custom_objects=None):
-        from . import deserialize as deserialize_layer
+        from keras.layers import deserialize as deserialize_layer
         cells = []
         for cell_config in config.pop('cells'):
             cells.append(deserialize_layer(cell_config,
@@ -520,12 +538,14 @@ class RNN(Layer):
             self._num_constants = len(constants)
             additional_specs += self.constants_spec
         # at this point additional_inputs cannot be empty
-        is_keras_tensor = hasattr(additional_inputs[0], '_keras_history')
+        is_keras_tensor = K.is_keras_tensor(additional_inputs[0])
         for tensor in additional_inputs:
-            if hasattr(tensor, '_keras_history') != is_keras_tensor:
+            if K.is_keras_tensor(tensor) != is_keras_tensor:
                 raise ValueError('The initial state or constants of an RNN'
                                  ' layer cannot be specified with a mix of'
-                                 ' Keras tensors and non-Keras tensors')
+                                 ' Keras tensors and non-Keras tensors'
+                                 ' (a "Keras tensor" is a tensor that was'
+                                 ' returned by a Keras layer, or by `Input`)')
 
         if is_keras_tensor:
             # Compute the full input spec, including state and constants
@@ -673,7 +693,6 @@ class RNN(Layer):
         return inputs, initial_state, constants
 
     def reset_states(self, states=None):
-        #print("STATE_RESET")
         if not self.stateful:
             raise AttributeError('Layer must be stateful.')
         batch_size = self.input_spec[0].shape[0]
@@ -742,7 +761,7 @@ class RNN(Layer):
 
     @classmethod
     def from_config(cls, config, custom_objects=None):
-        from . import deserialize as deserialize_layer
+        from keras.layers import deserialize as deserialize_layer
         cell = deserialize_layer(config.pop('cell'),
                                  custom_objects=custom_objects)
         num_constants = config.pop('num_constants', None)
@@ -786,7 +805,8 @@ class SimpleRNNCell(Layer):
         units: Positive integer, dimensionality of the output space.
         activation: Activation function to use
             (see [activations](../activations.md)).
-            If you pass None, no activation is applied
+            Default: hyperbolic tangent (`tanh`).
+            If you pass `None`, no activation is applied
             (ie. "linear" activation: `a(x) = x`).
         use_bias: Boolean, whether the layer uses a bias vector.
         kernel_initializer: Initializer for the `kernel` weights matrix,
@@ -944,7 +964,8 @@ class SimpleRNN(RNN):
         units: Positive integer, dimensionality of the output space.
         activation: Activation function to use
             (see [activations](../activations.md)).
-            If you pass None, no activation is applied
+            Default: hyperbolic tangent (`tanh`).
+            If you pass `None`, no activation is applied
             (ie. "linear" activation: `a(x) = x`).
         use_bias: Boolean, whether the layer uses a bias vector.
         kernel_initializer: Initializer for the `kernel` weights matrix,
@@ -1156,11 +1177,15 @@ class GRUCell(Layer):
         units: Positive integer, dimensionality of the output space.
         activation: Activation function to use
             (see [activations](../activations.md)).
-            If you pass None, no activation is applied
+            Default: hyperbolic tangent (`tanh`).
+            If you pass `None`, no activation is applied
             (ie. "linear" activation: `a(x) = x`).
         recurrent_activation: Activation function to use
             for the recurrent step
             (see [activations](../activations.md)).
+            Default: hard sigmoid (`hard_sigmoid`).
+            If you pass `None`, no activation is applied
+            (ie. "linear" activation: `a(x) = x`).
         use_bias: Boolean, whether the layer uses a bias vector.
         kernel_initializer: Initializer for the `kernel` weights matrix,
             used for the linear transformation of the inputs
@@ -1202,8 +1227,8 @@ class GRUCell(Layer):
     """
 
     def __init__(self, units,
-                 activation='tanh',
-                 recurrent_activation='hard_sigmoid',
+                 activation=binary_tanh,
+                 recurrent_activation=binary_sigmoid,
                  use_bias=True,
                  kernel_initializer='glorot_uniform',
                  recurrent_initializer='orthogonal',
@@ -1286,11 +1311,6 @@ class GRUCell(Layer):
         self.built = True
 
     def call(self, inputs, states, training=None):
-        #print("CALL")
-        try:
-            print(K.get_session().run(states)[0])
-        except Exception:
-            pass
         h_tm1 = states[0]  # previous memory
 
         if 0 < self.dropout < 1 and self._dropout_mask is None:
@@ -1321,9 +1341,9 @@ class GRUCell(Layer):
                 inputs_z = inputs
                 inputs_r = inputs
                 inputs_h = inputs
-            x_z = K.dot(inputs_z, self.kernel_z)
-            x_r = K.dot(inputs_r, self.kernel_r)
-            x_h = K.dot(inputs_h, self.kernel_h)
+            x_z = K.dot(inputs_z, binarize(self.kernel_z))
+            x_r = K.dot(inputs_r, binarize(self.kernel_r))
+            x_h = K.dot(inputs_h, binarize(self.kernel_h))
             if self.use_bias:
                 x_z = K.bias_add(x_z, self.bias_z)
                 x_r = K.bias_add(x_r, self.bias_r)
@@ -1338,12 +1358,12 @@ class GRUCell(Layer):
                 h_tm1_r = h_tm1
                 h_tm1_h = h_tm1
             z = self.recurrent_activation(x_z + K.dot(h_tm1_z,
-                                                      self.recurrent_kernel_z))
+                                                      binarize(self.recurrent_kernel_z)))
             r = self.recurrent_activation(x_r + K.dot(h_tm1_r,
-                                                      self.recurrent_kernel_r))
+                                                      binarize(self.recurrent_kernel_r)))
 
             hh = self.activation(x_h + K.dot(r * h_tm1_h,
-                                             self.recurrent_kernel_h))
+                                             binarize(self.recurrent_kernel_h)))
         else:
             if 0. < self.dropout < 1.:
                 inputs *= dp_mask[0]
@@ -1364,13 +1384,14 @@ class GRUCell(Layer):
             r = self.recurrent_activation(x_r + recurrent_r)
 
             x_h = matrix_x[:, 2 * self.units:]
-            recurrent_h = K.dot(tf.sign(r) * h_tm1,
+            recurrent_h = K.dot(r * h_tm1,
                                 self.recurrent_kernel[:, 2 * self.units:])
             hh = self.activation(x_h + recurrent_h)
-        h = tf.sign(z) * h_tm1 + (1 - tf.sign(z)) * hh
+        h = z * h_tm1 + (1 - z) * hh
         if 0 < self.dropout + self.recurrent_dropout:
             if training is None:
                 h._uses_learning_phase = True
+        h = binarize(h)
         return h, [h]
 
     def get_config(self):
@@ -1401,11 +1422,15 @@ class GRU(RNN):
         units: Positive integer, dimensionality of the output space.
         activation: Activation function to use
             (see [activations](../activations.md)).
-            If you pass None, no activation is applied
+            Default: hyperbolic tangent (`tanh`).
+            If you pass `None`, no activation is applied
             (ie. "linear" activation: `a(x) = x`).
         recurrent_activation: Activation function to use
             for the recurrent step
             (see [activations](../activations.md)).
+            Default: hard sigmoid (`hard_sigmoid`).
+            If you pass `None`, no activation is applied
+            (ie. "linear" activation: `a(x) = x`).
         use_bias: Boolean, whether the layer uses a bias vector.
         kernel_initializer: Initializer for the `kernel` weights matrix,
             used for the linear transformation of the inputs
@@ -1640,11 +1665,15 @@ class LSTMCell(Layer):
         units: Positive integer, dimensionality of the output space.
         activation: Activation function to use
             (see [activations](../activations.md)).
-            If you pass None, no activation is applied
+            Default: hyperbolic tangent (`tanh`).
+            If you pass `None`, no activation is applied
             (ie. "linear" activation: `a(x) = x`).
         recurrent_activation: Activation function to use
             for the recurrent step
             (see [activations](../activations.md)).
+            Default: hard sigmoid (`hard_sigmoid`).
+            If you pass `None`, no activation is applied
+            (ie. "linear" activation: `a(x) = x`).x
         use_bias: Boolean, whether the layer uses a bias vector.
         kernel_initializer: Initializer for the `kernel` weights matrix,
             used for the linear transformation of the inputs
@@ -1690,7 +1719,7 @@ class LSTMCell(Layer):
     """
 
     def __init__(self, units,
-                 activation='tanh',
+                 activation='hard_tanh',
                  recurrent_activation='hard_sigmoid',
                  use_bias=True,
                  kernel_initializer='glorot_uniform',
@@ -1788,6 +1817,20 @@ class LSTMCell(Layer):
         self.built = True
 
     def call(self, inputs, states, training=None):
+        if binarize:
+            self.kernel = clip_by_value(self.kernel, -1, 1)
+            self.recurrent_kernel = clip_by_value(self.recurrent_kernel, -1, 1)
+
+            self.kernel_i = self.kernel[:, :self.units]
+            self.kernel_f = self.kernel[:, self.units: self.units * 2]
+            self.kernel_c = self.kernel[:, self.units * 2: self.units * 3]
+            self.kernel_o = self.kernel[:, self.units * 3:]
+
+            self.recurrent_kernel_i = self.recurrent_kernel[:, :self.units]
+            self.recurrent_kernel_f = self.recurrent_kernel[:, self.units: self.units * 2]
+            self.recurrent_kernel_c = self.recurrent_kernel[:, self.units * 2: self.units * 3]
+            self.recurrent_kernel_o = self.recurrent_kernel[:, self.units * 3:]
+
         if 0 < self.dropout < 1 and self._dropout_mask is None:
             self._dropout_mask = _generate_dropout_mask(
                 _generate_dropout_ones(inputs, K.shape(inputs)[-1]),
@@ -1821,10 +1864,10 @@ class LSTMCell(Layer):
                 inputs_f = inputs
                 inputs_c = inputs
                 inputs_o = inputs
-            x_i = K.dot(inputs_i, self.kernel_i)
-            x_f = K.dot(inputs_f, self.kernel_f)
-            x_c = K.dot(inputs_c, self.kernel_c)
-            x_o = K.dot(inputs_o, self.kernel_o)
+            x_i = K.dot(inputs_i, binarize(self.kernel_i))
+            x_f = K.dot(inputs_f, binarize(self.kernel_f))
+            x_c = K.dot(inputs_c, binarize(self.kernel_c))
+            x_o = K.dot(inputs_o, binarize(self.kernel_o))
             if self.use_bias:
                 x_i = K.bias_add(x_i, self.bias_i)
                 x_f = K.bias_add(x_f, self.bias_f)
@@ -1842,13 +1885,13 @@ class LSTMCell(Layer):
                 h_tm1_c = h_tm1
                 h_tm1_o = h_tm1
             i = self.recurrent_activation(x_i + K.dot(h_tm1_i,
-                                                      self.recurrent_kernel_i))
+                                                      binarize(self.recurrent_kernel_i)))
             f = self.recurrent_activation(x_f + K.dot(h_tm1_f,
-                                                      self.recurrent_kernel_f))
+                                                      binarize(self.recurrent_kernel_f)))
             c = f * c_tm1 + i * self.activation(x_c + K.dot(h_tm1_c,
-                                                            self.recurrent_kernel_c))
+                                                            binarize(self.recurrent_kernel_c)))
             o = self.recurrent_activation(x_o + K.dot(h_tm1_o,
-                                                      self.recurrent_kernel_o))
+                                                      binarize(self.recurrent_kernel_o)))
         else:
             if 0. < self.dropout < 1.:
                 inputs *= dp_mask[0]
@@ -1873,6 +1916,7 @@ class LSTMCell(Layer):
         if 0 < self.dropout + self.recurrent_dropout:
             if training is None:
                 h._uses_learning_phase = True
+        h = binarize(h)
         return h, [h, c]
 
     def get_config(self):
@@ -1904,11 +1948,15 @@ class LSTM(RNN):
         units: Positive integer, dimensionality of the output space.
         activation: Activation function to use
             (see [activations](../activations.md)).
-            If you pass None, no activation is applied
+            Default: hyperbolic tangent (`tanh`).
+            If you pass `None`, no activation is applied
             (ie. "linear" activation: `a(x) = x`).
         recurrent_activation: Activation function to use
             for the recurrent step
             (see [activations](../activations.md)).
+            Default: hard sigmoid (`hard_sigmoid`).
+            If you pass `None`, no activation is applied
+            (ie. "linear" activation: `a(x) = x`).
         use_bias: Boolean, whether the layer uses a bias vector.
         kernel_initializer: Initializer for the `kernel` weights matrix,
             used for the linear transformation of the inputs.

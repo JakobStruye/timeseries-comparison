@@ -33,8 +33,10 @@ from data_processing import DataProcessor
 import errors
 import rnn_tf
 from keras.models import Sequential
-from keras.layers import Dense, LSTM, Dropout, GRU
+from keras.layers import Dense, Dropout
+from recurrent import LSTM, GRU
 from keras.optimizers import adam
+from keras.callbacks import TensorBoard
 from adaptive_normalization import AdaptiveNormalizer
 import core_binary
 import time
@@ -275,7 +277,8 @@ def run_gru(s):
         print(rnn.summary())
     elif s.implementation == "tf":
         data = tf.placeholder(tf.float32, (s.batch_size,) + s.rnn_input_shape)  # Number of examples, number of input, dimension of each input
-        target = tf.placeholder(tf.float32, s.batch_output_shape)
+        target = tf.placeholder(tf.float32, (1, 3000, 1)) #TODO s.batch_output_shape)
+        print data, target
         if s.rnn_type == "lstm" and s.use_binary:
             cell = rnn_tf.LSTMCell(s.nodes)
 
@@ -404,7 +407,7 @@ def run_gru(s):
     trainY = np.reshape(trainY, s.actual_output_shape_train)
     if s.implementation == "keras":
         for _ in tqdm(range(s.epochs)):
-            rnn.fit(trainX, trainY, epochs=1, batch_size=s.batch_size, verbose=min(s.max_verbosity, 2), shuffle=not s.stateful)
+            rnn.fit(trainX, trainY, epochs=1, batch_size=s.batch_size, verbose=min(s.max_verbosity, 2), shuffle=not s.stateful, validation_split=0.1, callbacks=[TensorBoard(log_dir='./logs', histogram_freq=1, write_grads=True)])
             if s.stateful:
                 lstm.reset_states()
 

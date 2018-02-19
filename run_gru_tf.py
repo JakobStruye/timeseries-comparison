@@ -456,7 +456,7 @@ def run_gru(s):
     #             an.remove_outliers()
     #             seq_norm = an.do_adaptive_normalize()
     #
-    #             allX = seq_norm[:, 0:-s.predictionStep]
+    #             allX = seq_norm[:, 0:-s.predictionStep]f
     #             allY = np.reshape(seq_norm[:, -1], (-1,))
     #
     #         trainX = allX[i-s.nTrain-s.predictionStep:i-s.predictionStep]
