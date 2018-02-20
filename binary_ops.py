@@ -3,7 +3,24 @@
 from __future__ import absolute_import
 import keras.backend as K
 
+from keras import constraints
 
+
+class Clip(constraints.Constraint):
+    def __init__(self, min_value=-1, max_value=1):
+        self.min_value = min_value
+        self.max_value = max_value
+        if not self.max_value:
+            self.max_value = -self.min_value
+        if self.min_value > self.max_value:
+            self.min_value, self.max_value = self.max_value, self.min_value
+
+    def __call__(self, p):
+        return K.clip(p, self.min_value, self.max_value)
+
+    def get_config(self):
+        return {"min_value": self.min_value,
+                "max_value": self.max_value}
 
 def round_through(x):
     '''Element-wise rounding to the closest integer with full gradient propagation.
@@ -56,6 +73,7 @@ def binarize(W, H=1):
     - [BinaryNet: Training Deep Neural Networks with Weights and Activations Constrained to +1 or -1, Courbariaux et al. 2016](http://arxiv.org/abs/1602.02830}
 
     '''
+    #return W
     # [-H, H] -> -H or H
     Wb = H * binary_tanh(W / H)
     return Wb

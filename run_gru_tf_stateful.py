@@ -33,7 +33,7 @@ from data_processing import DataProcessor
 import errors
 import rnn_tf
 from keras.models import Sequential
-from keras.layers import Dense, Dropout, GRU
+from keras.layers import Dense, Dropout, GRU#, LSTM
 from recurrent import LSTM#, GRU
 from keras.optimizers import adam
 from keras.callbacks import TensorBoard
@@ -267,14 +267,14 @@ def run_gru(s):
             raise Exception("Binary Keras not implemented")
         rnn = Sequential()
         if s.rnn_type == "lstm":
-            lstm = LSTM(s.nodes, input_shape=s.rnn_input_shape, batch_size=s.rnn_batch_size, kernel_initializer='he_uniform', stateful=s.stateful, return_sequences=s.return_sequences)
+            lstm = LSTM(s.nodes, input_shape=s.rnn_input_shape, batch_size=s.rnn_batch_size, kernel_initializer='he_uniform', stateful=s.stateful, return_sequences=s.return_sequences, use_bias=False)
             rnn.add(lstm)
         elif s.rnn_type == "gru":
             rnn.add(GRU(s.nodes, input_shape=s.rnn_input_shape, batch_size=s.rnn_batch_size, kernel_initializer='he_uniform', stateful=s.stateful, return_sequences=s.return_sequences))
 
-        rnn.add(Dropout(0.5))
+        #rnn.add(Dropout(0.5))
         rnn.add(Dense(1, kernel_initializer='he_uniform'))
-        opt = adam(lr=s.lr, decay=0.0)#1e-3)
+        opt = adam(lr=s.lr, decay=0.0)#, clipvalue=1.)#1e-3)
         rnn.compile(loss=s.loss, optimizer=opt)
         print(rnn.summary())
     elif s.implementation == "tf":
@@ -347,6 +347,9 @@ def run_gru(s):
 
     #Get rid of unneeded columns
     sequence = sequence[:,0:s.feature_count]
+    #sequence[-1000,0] = 666
+    print "Changed -1000 to 666"
+
 
     """
     We need to leave some values unpredicted in front so that
@@ -401,15 +404,20 @@ def run_gru(s):
         allX= seq_norm[:,0:-s.predictionStep]
         allY = np.reshape(seq_norm[:,-1,0], (-1,))
     predictedInput = np.full((len(allY),), np.nan) #Initialize all predictions to NaN
+    print tf.Session().run(tf.reduce_sum(tf.cast(tf.is_finite(sequence[:]), tf.float32)))
 
 
     trainX = allX[:s.nTrain]
     trainY = allY[:s.nTrain]
+    print "FINAL", trainX[-1]
+    print "FINAL", trainY[-1]
     trainX = np.reshape(trainX, s.actual_input_shape_train)
     trainY = np.reshape(trainY, s.actual_output_shape_train)
+
     if s.implementation == "keras":
-        for _ in tqdm(range(s.epochs)):
-            rnn.fit(trainX, trainY, epochs=1, batch_size=s.batch_size, verbose=min(s.max_verbosity, 2), shuffle=not s.stateful, validation_split=0.1, callbacks=[TensorBoard(log_dir='./logs', histogram_freq=1, write_grads=True)])
+        #for _ in tqdm(range(s.epochs)):
+        for _ in tqdm(range(1)):
+            rnn.fit(trainX, trainY, epochs=s.epochs, batch_size=s.batch_size, verbose=min(s.max_verbosity, 2), shuffle=not s.stateful, validation_data=(trainX, trainY), callbacks=[TensorBoard(log_dir='./logs', histogram_freq=1, write_grads=True)])
             if s.stateful:
                 lstm.reset_states()
 
@@ -502,6 +510,9 @@ def run_gru(s):
             targetInput = np.delete(targetInput, an.deletes)
 
 
+
+    print "Last not to change:", predictedInput[-996], targetInput[-996]
+    print "First to change:", predictedInput[-995], targetInput[-995]
     dp.saveResultToFile(s.dataSet, predictedInput, targetInput, 'gru', s.predictionStep, s.max_verbosity)
     skipTrain = s.ignore_for_error
     from plot import computeSquareDeviation

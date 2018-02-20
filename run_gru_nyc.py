@@ -9,11 +9,11 @@ settings.online = False
 nodes = 250 #317
 lr = 0.003#0.0031802801373# 0.0077
 settings.nodes = nodes
-settings.batch_size = None
+settings.batch_size = 32
 settings.lr = lr
 settings.loss = 'mae'
 settings.stateful=False
-settings.lookback = None #None to not use lookbacks
+settings.lookback = 75  #None to not use lookbacks
 settings.lookback_as_features=False #Considers each lookback value a separate feature if True, ignored if lookback is None
 settings.feature_count = 1 #Uses the first `feature_count` selected columns as features, ignored if `lookback_as_features`
 settings.predictionStep = 5
@@ -25,7 +25,7 @@ settings.normalization_type = 'default'
 settings.implementation = 'keras'
 settings.rnn_type = 'lstm'
 settings.use_binary = False
-settings.limit_to = 7000
+settings.limit_to = None
 settings.finalize()
 mase = run_gru(settings)
 

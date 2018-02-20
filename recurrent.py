@@ -21,24 +21,30 @@ from keras.utils.generic_utils import has_arg
 from keras.legacy.layers import Recurrent
 from keras.legacy import interfaces
 
-from tensorflow import sign, get_default_graph, clip_by_value
+from tensorflow import sign, get_default_graph, clip_by_value, stop_gradient, identity
+from tensorflow import round as tfround
 from tensorflow.python.framework import ops
 
-from binary_ops import binarize, binary_sigmoid, binary_tanh
+from binary_ops import binary_sigmoid, binary_tanh, Clip
 
 do_binarize = True
-# def binarize(x):
-#     """
-#     Clip and binarize tensor using the straight through estimator (STE) for the gradient.
-#     """
-#     if not do_binarize:
-#       return x
-#     g = get_default_graph()
-#
-#     with ops.name_scope("Binarized") as name:
-#         with g.gradient_override_map({"Sign": "Identity"}):
-#             x=clip_by_value(x,-1,1)
-#             return sign(sign(x) + 0.5) #0 --> 1
+def binarize(x):
+    """
+    Clip and binarize tensor using the straight through estimator (STE) for the gradient.
+    """
+    if not do_binarize:
+      return x
+
+    rounded = clip_by_value(2 * sign(x) - 1, -1, 1)
+    return x + stop_gradient(rounded - x)
+
+    # g = get_default_graph()
+    #
+    # with ops.name_scope("Binarized") as name:
+    #     with g.gradient_override_map({"Round": "Identity", "Sign": "Identity"}):
+    #         x=clip_by_value(x,-1,1)
+    #         #return sign(sign(x) - 0.5) #0 --> 1
+    #         return sign(2 * sign(x) - 1)
 
 
 
@@ -1257,8 +1263,8 @@ class GRUCell(Layer):
         self.recurrent_regularizer = regularizers.get(recurrent_regularizer)
         self.bias_regularizer = regularizers.get(bias_regularizer)
 
-        self.kernel_constraint = constraints.get(kernel_constraint)
-        self.recurrent_constraint = constraints.get(recurrent_constraint)
+        self.kernel_constraint = Clip()
+        self.recurrent_constraint = Clip()
         self.bias_constraint = constraints.get(bias_constraint)
 
         self.dropout = min(1., max(0., dropout))
@@ -1719,7 +1725,7 @@ class LSTMCell(Layer):
     """
 
     def __init__(self, units,
-                 activation='hard_tanh',
+                 activation='tanh',
                  recurrent_activation='hard_sigmoid',
                  use_bias=True,
                  kernel_initializer='glorot_uniform',
@@ -1751,6 +1757,8 @@ class LSTMCell(Layer):
         self.recurrent_regularizer = regularizers.get(recurrent_regularizer)
         self.bias_regularizer = regularizers.get(bias_regularizer)
 
+        #self.kernel_constraint = Clip()
+        #self.recurrent_constraint = Clip()
         self.kernel_constraint = constraints.get(kernel_constraint)
         self.recurrent_constraint = constraints.get(recurrent_constraint)
         self.bias_constraint = constraints.get(bias_constraint)
@@ -1769,6 +1777,7 @@ class LSTMCell(Layer):
                                       initializer=self.kernel_initializer,
                                       regularizer=self.kernel_regularizer,
                                       constraint=self.kernel_constraint)
+
         self.recurrent_kernel = self.add_weight(
             shape=(self.units, self.units * 4),
             name='recurrent_kernel',
@@ -1817,19 +1826,19 @@ class LSTMCell(Layer):
         self.built = True
 
     def call(self, inputs, states, training=None):
-        if binarize:
-            self.kernel = clip_by_value(self.kernel, -1, 1)
-            self.recurrent_kernel = clip_by_value(self.recurrent_kernel, -1, 1)
-
-            self.kernel_i = self.kernel[:, :self.units]
-            self.kernel_f = self.kernel[:, self.units: self.units * 2]
-            self.kernel_c = self.kernel[:, self.units * 2: self.units * 3]
-            self.kernel_o = self.kernel[:, self.units * 3:]
-
-            self.recurrent_kernel_i = self.recurrent_kernel[:, :self.units]
-            self.recurrent_kernel_f = self.recurrent_kernel[:, self.units: self.units * 2]
-            self.recurrent_kernel_c = self.recurrent_kernel[:, self.units * 2: self.units * 3]
-            self.recurrent_kernel_o = self.recurrent_kernel[:, self.units * 3:]
+        # if binarize:
+        #     self.kernel = clip_by_value(self.kernel, -1, 1)
+        #     self.recurrent_kernel = clip_by_value(self.recurrent_kernel, -1, 1)
+        #
+        #     self.kernel_i = self.kernel[:, :self.units]
+        #     self.kernel_f = self.kernel[:, self.units: self.units * 2]
+        #     self.kernel_c = self.kernel[:, self.units * 2: self.units * 3]
+        #     self.kernel_o = self.kernel[:, self.units * 3:]
+        #
+        #     self.recurrent_kernel_i = self.recurrent_kernel[:, :self.units]
+        #     self.recurrent_kernel_f = self.recurrent_kernel[:, self.units: self.units * 2]
+        #     self.recurrent_kernel_c = self.recurrent_kernel[:, self.units * 2: self.units * 3]
+        #     self.recurrent_kernel_o = self.recurrent_kernel[:, self.units * 3:]
 
         if 0 < self.dropout < 1 and self._dropout_mask is None:
             self._dropout_mask = _generate_dropout_mask(
@@ -1864,10 +1873,11 @@ class LSTMCell(Layer):
                 inputs_f = inputs
                 inputs_c = inputs
                 inputs_o = inputs
-            x_i = K.dot(inputs_i, binarize(self.kernel_i))
-            x_f = K.dot(inputs_f, binarize(self.kernel_f))
-            x_c = K.dot(inputs_c, binarize(self.kernel_c))
-            x_o = K.dot(inputs_o, binarize(self.kernel_o))
+            my_binarize = binarize
+            x_i = K.dot(my_binarize(inputs_i), my_binarize(self.kernel_i))
+            x_f = K.dot(my_binarize(inputs_f), my_binarize(self.kernel_f))
+            x_c = K.dot(my_binarize(inputs_c), my_binarize(self.kernel_c))
+            x_o = K.dot(my_binarize(inputs_o), my_binarize(self.kernel_o))
             if self.use_bias:
                 x_i = K.bias_add(x_i, self.bias_i)
                 x_f = K.bias_add(x_f, self.bias_f)
@@ -1884,14 +1894,23 @@ class LSTMCell(Layer):
                 h_tm1_f = h_tm1
                 h_tm1_c = h_tm1
                 h_tm1_o = h_tm1
-            i = self.recurrent_activation(x_i + K.dot(h_tm1_i,
-                                                      binarize(self.recurrent_kernel_i)))
-            f = self.recurrent_activation(x_f + K.dot(h_tm1_f,
-                                                      binarize(self.recurrent_kernel_f)))
-            c = f * c_tm1 + i * self.activation(x_c + K.dot(h_tm1_c,
-                                                            binarize(self.recurrent_kernel_c)))
-            o = self.recurrent_activation(x_o + K.dot(h_tm1_o,
-                                                      binarize(self.recurrent_kernel_o)))
+            my_binarize = binarize
+            i = self.recurrent_activation(x_i + K.dot(my_binarize(h_tm1_i),
+                                                      my_binarize(self.recurrent_kernel_i)))
+            my_binarize = binarize
+
+            f = self.recurrent_activation(x_f + K.dot(my_binarize(h_tm1_f),
+                                                      my_binarize(self.recurrent_kernel_f)))
+            my_binarize = binarize
+
+            c = f * c_tm1 + i * self.activation(x_c + K.dot(my_binarize(h_tm1_c),
+                                                            my_binarize(self.recurrent_kernel_c)))
+            my_binarize = binarize
+
+            o = self.recurrent_activation(x_o + K.dot(my_binarize(h_tm1_o),
+                                                      my_binarize(self.recurrent_kernel_o)))
+            my_binarize = binarize
+
         else:
             if 0. < self.dropout < 1.:
                 inputs *= dp_mask[0]
