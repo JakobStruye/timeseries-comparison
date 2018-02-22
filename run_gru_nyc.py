@@ -4,12 +4,12 @@ from run_gru_tf_stateful import GruSettings, run_gru
 
 settings = GruSettings()
 settings.max_verbosity = 2
-settings.epochs = 100
+settings.epochs = 500
 settings.online = False
 nodes = 250 #317
 lr = 0.003#0.0031802801373# 0.0077
 settings.nodes = nodes
-settings.batch_size = 32
+settings.batch_size = None
 settings.lr = lr
 settings.loss = 'mae'
 settings.stateful=False
@@ -19,11 +19,11 @@ settings.feature_count = 1 #Uses the first `feature_count` selected columns as f
 settings.predictionStep = 5
 settings.season = 48
 settings.retrain_interval = 2500
-settings.nTrain = 3000
+settings.nTrain = 5000
 settings.ignore_for_error = 5500
 settings.normalization_type = 'default'
 settings.implementation = 'keras'
-settings.rnn_type = 'lstm'
+settings.rnn_type = 'gru'
 settings.use_binary = False
 settings.limit_to = None
 settings.finalize()

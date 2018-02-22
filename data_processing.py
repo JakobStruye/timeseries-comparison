@@ -60,8 +60,18 @@ class DataProcessor():
         if columns is None:
             columns = range(sequence.shape[1])
         #Mean and std per column!
-        mean = np.mean(sequence[:,columns][:nTrain], axis=0)
-        std = np.std(sequence[:,columns][:nTrain], axis=0)
+        mean = np.mean(sequence[:nTrain,columns], axis=0)
+        std = np.std(sequence[:nTrain,columns], axis=0)
+        sequence[:,columns] = (sequence[:,columns] - mean)/std
+
+        return (mean,std)
+
+    def normalizeNoTrain(self, sequence, columns=None):
+        if columns is None:
+            columns = range(sequence.shape[1])
+        #Mean and std per column!
+        mean = np.mean(sequence[:,columns], axis=0)
+        std = np.std(sequence[:,columns], axis=0)
         sequence[:,columns] = (sequence[:,columns] - mean)/std
 
         return (mean,std)

@@ -33,8 +33,8 @@ from data_processing import DataProcessor
 import errors
 import rnn_tf
 from keras.models import Sequential
-from keras.layers import Dense, Dropout, GRU#, LSTM
-from recurrent import LSTM#, GRU
+from keras.layers import Dense, Dropout, GRU, LSTM
+#from recurrent import LSTM, GRU
 from keras.optimizers import adam
 from keras.callbacks import TensorBoard
 from adaptive_normalization import AdaptiveNormalizer
@@ -170,6 +170,24 @@ def _getArgs():
 
     return options, remainder
 
+def get_gradients(model):
+    """Return the gradient of every trainable weight in model
+
+    Parameters
+    -----------
+    model : a keras model instance
+
+    First, find all tensors which are trainable in the model. Surprisingly,
+    `model.trainable_weights` will return tensors for which
+    trainable=False has been set on their layer (last time I checked), hence the extra check.
+    Next, get the gradients of the loss with respect to the weights.
+
+    """
+    weights = [tensor for tensor in model.trainable_weights if model.get_layer(tensor.name[:-2]).trainable]
+    optimizer = model.optimizer
+
+    return optimizer.get_gradients(model.total_loss, weights)
+
 class GruSettings:
     epochs = 75
 
@@ -267,7 +285,7 @@ def run_gru(s):
             raise Exception("Binary Keras not implemented")
         rnn = Sequential()
         if s.rnn_type == "lstm":
-            lstm = LSTM(s.nodes, input_shape=s.rnn_input_shape, batch_size=s.rnn_batch_size, kernel_initializer='he_uniform', stateful=s.stateful, return_sequences=s.return_sequences, use_bias=False)
+            lstm = LSTM(s.nodes, input_shape=s.rnn_input_shape, batch_size=s.rnn_batch_size, kernel_initializer='he_uniform', stateful=s.stateful, return_sequences=s.return_sequences, dropout=0.5)
             rnn.add(lstm)
         elif s.rnn_type == "gru":
             rnn.add(GRU(s.nodes, input_shape=s.rnn_input_shape, batch_size=s.rnn_batch_size, kernel_initializer='he_uniform', stateful=s.stateful, return_sequences=s.return_sequences))
@@ -348,7 +366,7 @@ def run_gru(s):
     #Get rid of unneeded columns
     sequence = sequence[:,0:s.feature_count]
     #sequence[-1000,0] = 666
-    print "Changed -1000 to 666"
+    #print "Changed -1000 to 666"
 
 
     """
@@ -370,6 +388,7 @@ def run_gru(s):
     dp = DataProcessor()
     if s.normalization_type == 'default':
         (meanSeq, stdSeq) = dp.normalize(sequence, s.nTrain)
+
     elif s.normalization_type == 'windowed':
         dp.windowed_normalize(sequence, columns=[0])
         if s.feature_count > 1:
@@ -394,7 +413,6 @@ def run_gru(s):
     #seq_actual = sequence[s.front_buffer:] #Leave enough headroom for MASE calculation and lookback
     #seq_full_norm = np.reshape(sequence[:,0], (sequence.shape[0],))
     #seq_actual_norm = seq_full_norm[s.front_buffer:]
-
     if s.normalization_type != "AN":
         #Default and windowed change the seq itself but still require creating lookback frames
         allX = getX(sequence, s)
@@ -409,15 +427,13 @@ def run_gru(s):
 
     trainX = allX[:s.nTrain]
     trainY = allY[:s.nTrain]
-    print "FINAL", trainX[-1]
-    print "FINAL", trainY[-1]
     trainX = np.reshape(trainX, s.actual_input_shape_train)
     trainY = np.reshape(trainY, s.actual_output_shape_train)
 
     if s.implementation == "keras":
         #for _ in tqdm(range(s.epochs)):
         for _ in tqdm(range(1)):
-            rnn.fit(trainX, trainY, epochs=s.epochs, batch_size=s.batch_size, verbose=min(s.max_verbosity, 2), shuffle=not s.stateful, validation_data=(trainX, trainY), callbacks=[TensorBoard(log_dir='./logs', histogram_freq=1, write_grads=True)])
+            rnn.fit(trainX, trainY, epochs=s.epochs, batch_size=s.batch_size, verbose=min(s.max_verbosity, 2), shuffle=not s.stateful)#, validation_data=(trainX, trainY), callbacks=[TensorBoard(log_dir='./logs', histogram_freq=1, write_grads=True)])
             if s.stateful:
                 lstm.reset_states()
 
@@ -436,11 +452,44 @@ def run_gru(s):
         var = [v for v in tf.trainable_variables() if v.name == "dense/bias:0"]
         print sess.run(var)
 
+    # weights = rnn.trainable_weights  # weight tensors
+    # for layer in rnn.layers:
+    #     print layer.name
+    # weights = [weight for weight in weights] # if rnn.get_layer(
+    # #weight.name[:-2].split('/')).trainable]  # filter down weights tensors to only ones which are trainable
+    # gradients = rnn.optimizer.get_gradients(rnn.model.total_loss, weights)
+    # print gradients
+    #
+    # input_tensors = [rnn.inputs[0],  # input data
+    #                  rnn.sample_weights[0],  # how much to weight each sample by
+    #                  rnn.targets[0],  # labels
+    #                  K.learning_phase(),  # train or test mode
+    #                  ]
+    #
+    # get_gradients = K.function(inputs=input_tensors, outputs=gradients)
+    #
+    # inputs = [trainX,  # X
+    #           np.ones(len(trainX)),  # sample weights
+    #           trainY,  # y
+    #           0  # learning phase in TEST mode
+    #           ]
+    # grads = get_gradients(inputs)
+    # print grads
+    # for grad in grads:
+    #     print "NAN?", np.any(np.isnan(grad))
+    # #exit(1)
+    # rnn.save_weights("weights.out")
+
+
+    
+    # for layer in rnn.layers:
+    #     print layer.get_weights()
     #for i in xrange(0, s.nTrain + s.predictionStep):
     #   rnn.predict(np.reshape(allX[i], (1, 1, x_dims)))
     #predictedInput[s.nTrain + s.predictionStep : len(allX)] =  rnn.predict(np.reshape(allX[s.nTrain + s.predictionStep : len(allX)], (1, 12510, x_dims)))
     latestStart = None
     do_non_lookback = True
+    print "FROM", s.nTrain + s.predictionStep, len(allX)
     for i in tqdm(xrange(s.nTrain + s.predictionStep, len(allX)), disable=s.max_verbosity == 0):
         if i % s.retrain_interval == 0 and s.online:
             do_non_lookback = True
@@ -486,8 +535,10 @@ def run_gru(s):
             do_non_lookback = False
             up_to = min(allX.shape[0], i - (i % s.retrain_interval) + s.retrain_interval) if s.online else allX.shape[0]
             start_time = time.time()
+            #print allX[0]
             new_predicts = rnn.predict(np.reshape(allX[:up_to], (1, up_to, s.x_dims)))
             new_predicts = np.reshape(new_predicts, (new_predicts.shape[1],))
+            #print new_predicts[0]
             predictedInput[i:up_to] = new_predicts[i:up_to]
 
 
@@ -511,8 +562,8 @@ def run_gru(s):
 
 
 
-    print "Last not to change:", predictedInput[-996], targetInput[-996]
-    print "First to change:", predictedInput[-995], targetInput[-995]
+    #print "Last not to change:", predictedInput[-996], targetInput[-996]
+    #print "First to change:", predictedInput[-995], targetInput[-995]
     dp.saveResultToFile(s.dataSet, predictedInput, targetInput, 'gru', s.predictionStep, s.max_verbosity)
     skipTrain = s.ignore_for_error
     from plot import computeSquareDeviation

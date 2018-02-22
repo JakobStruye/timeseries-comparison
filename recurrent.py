@@ -25,7 +25,7 @@ from tensorflow import sign, get_default_graph, clip_by_value, stop_gradient, id
 from tensorflow import round as tfround
 from tensorflow.python.framework import ops
 
-from binary_ops import binary_sigmoid, binary_tanh, Clip
+from binary_ops import  binary_sigmoid, binary_tanh, Clip
 
 do_binarize = True
 def binarize(x):
@@ -35,14 +35,14 @@ def binarize(x):
     if not do_binarize:
       return x
 
-    rounded = clip_by_value(2 * sign(x) - 1, -1, 1)
-    return x + stop_gradient(rounded - x)
+    rounded = K.clip(2 * K.round(x) - 1, -0.9, 0.9)
+    return x + K.stop_gradient(rounded - x)
 
     # g = get_default_graph()
     #
     # with ops.name_scope("Binarized") as name:
     #     with g.gradient_override_map({"Round": "Identity", "Sign": "Identity"}):
-    #         x=clip_by_value(x,-1,1)
+    #         #x=clip_by_value(x,-1,1)
     #         #return sign(sign(x) - 0.5) #0 --> 1
     #         return sign(2 * sign(x) - 1)
 
@@ -1234,7 +1234,7 @@ class GRUCell(Layer):
 
     def __init__(self, units,
                  activation=binary_tanh,
-                 recurrent_activation=binary_sigmoid,
+                 recurrent_activation='hard_sigmoid',
                  use_bias=True,
                  kernel_initializer='glorot_uniform',
                  recurrent_initializer='orthogonal',
@@ -1265,6 +1265,8 @@ class GRUCell(Layer):
 
         self.kernel_constraint = Clip()
         self.recurrent_constraint = Clip()
+        #self.kernel_constraint = constraints.get(kernel_constraint)
+        #self.recurrent_constraint = constraints.get(recurrent_constraint)
         self.bias_constraint = constraints.get(bias_constraint)
 
         self.dropout = min(1., max(0., dropout))
@@ -1347,9 +1349,13 @@ class GRUCell(Layer):
                 inputs_z = inputs
                 inputs_r = inputs
                 inputs_h = inputs
-            x_z = K.dot(inputs_z, binarize(self.kernel_z))
-            x_r = K.dot(inputs_r, binarize(self.kernel_r))
-            x_h = K.dot(inputs_h, binarize(self.kernel_h))
+            my_binarize = binarize
+            x_z = K.dot(my_binarize(inputs_z), my_binarize(self.kernel_z))
+            my_binarize = binarize
+            x_r = K.dot(my_binarize(inputs_r), my_binarize(self.kernel_r))
+            my_binarize = binarize
+            x_h = K.dot(my_binarize(inputs_h), my_binarize(self.kernel_h))
+
             if self.use_bias:
                 x_z = K.bias_add(x_z, self.bias_z)
                 x_r = K.bias_add(x_r, self.bias_r)
@@ -1363,13 +1369,20 @@ class GRUCell(Layer):
                 h_tm1_z = h_tm1
                 h_tm1_r = h_tm1
                 h_tm1_h = h_tm1
-            z = self.recurrent_activation(x_z + K.dot(h_tm1_z,
-                                                      binarize(self.recurrent_kernel_z)))
-            r = self.recurrent_activation(x_r + K.dot(h_tm1_r,
-                                                      binarize(self.recurrent_kernel_r)))
+            my_binarize1 = binarize
+            my_binarize2 = binarize
 
-            hh = self.activation(x_h + K.dot(r * h_tm1_h,
-                                             binarize(self.recurrent_kernel_h)))
+            z = self.recurrent_activation(x_z + K.dot(my_binarize1(h_tm1_z) ,
+                                                      my_binarize2(self.recurrent_kernel_z)))
+            my_binarize1 = binarize
+            my_binarize2 = binarize
+
+            r = self.recurrent_activation(x_r + K.dot(my_binarize1(h_tm1_r),
+                                                      my_binarize2(self.recurrent_kernel_r)))
+            my_binarize1 = binarize
+            my_binarize2 = binarize
+            hh = self.activation(x_h + K.dot(my_binarize1(r * h_tm1_h),
+                                             my_binarize2(self.recurrent_kernel_h)))
         else:
             if 0. < self.dropout < 1.:
                 inputs *= dp_mask[0]
