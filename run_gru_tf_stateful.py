@@ -290,9 +290,9 @@ def run_gru(s):
         elif s.rnn_type == "gru":
             rnn.add(GRU(s.nodes, input_shape=s.rnn_input_shape, batch_size=s.rnn_batch_size, kernel_initializer='he_uniform', stateful=s.stateful, return_sequences=s.return_sequences))
 
-        #rnn.add(Dropout(0.5))
+        rnn.add(Dropout(0.5))
         rnn.add(Dense(1, kernel_initializer='he_uniform'))
-        opt = adam(lr=s.lr, decay=0.0)#, clipvalue=1.)#1e-3)
+        opt = adam(lr=s.lr, decay=0.0, epsilon=0.001)#, clipvalue=1.)#1e-3)
         rnn.compile(loss=s.loss, optimizer=opt)
         print(rnn.summary())
     elif s.implementation == "tf":

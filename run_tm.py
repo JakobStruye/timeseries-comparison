@@ -50,7 +50,7 @@ rcParams['pdf.fonttype'] = 42
 plt.ion()
 
 #SETTINGS
-limit_to = 7000  # None for no limit
+limit_to = None  # None for no limit
 nMultiplePass = 5
 
 
@@ -312,22 +312,22 @@ if __name__ == "__main__":
 
     dp = DataProcessor()
     # #dp.windowed_normalize(df, field_name=predictedField, is_data_field=True)
-    an = AdaptiveNormalizer(90, 95)
-    an.set_pruning(False)
-    an.set_source_data(df[predictedField], 3000)
-    an.do_ma('s')
-    an.do_stationary()
-    an.remove_outliers()
-    seq_norm = an.do_adaptive_normalize()
-    length = limit_to if limit_to else len(df)
-    print(length)
-    for i in range(len(seq_norm)):
+    #an = AdaptiveNormalizer(90, 95)
+    #an.set_pruning(False)
+    #an.set_source_data(df[predictedField], 3000)
+    #an.do_ma('s')
+    #an.do_stationary()
+    #an.remove_outliers()
+    #seq_norm = an.do_adaptive_normalize()
+    #length = limit_to if limit_to else len(df)
+    #print(length)
+    #for i in range(len(seq_norm)):
 
 
-        df.loc[str(length - 1 - i):str(length - 1 - i),predictedField] = seq_norm[-i-1][-1]
+        #df.loc[str(length - 1 - i):str(length - 1 - i),predictedField] = seq_norm[-i-1][-1]
 
-    print df
-    print df[predictedField]
+    #print df
+    #print df[predictedField]
 
 
     print " run SP through the first %i samples %i passes " %(nMultiplePass, nTrain)
@@ -358,9 +358,9 @@ if __name__ == "__main__":
     predictions = []
     loop_length = len(df) if limit_to is None else limit_to
 
-    for i in tqdm(xrange(90 - 1 , loop_length)):
+    for i in tqdm(xrange(loop_length)):
         inputRecord = getInputRecord(df, predictedField, i)
-        print inputRecord
+        #print inputRecord
         # tp = model._getTPRegion()
         # tm = tp.getSelf()._tfdr
         # prePredictiveCells = tm.getPredictiveCells()
@@ -410,8 +410,8 @@ if __name__ == "__main__":
         #output.write([i], actual_data[i], predict_data_ML[i])
 
 
-    predict_data_ML = np.array(an.do_adaptive_denormalize(np.array(predict_data_ML)))
-    actual_data = np.array(an.do_adaptive_denormalize(np.array(actual_data)))
+    #predict_data_ML = np.array(an.do_adaptive_denormalize(np.array(predict_data_ML)))
+    #actual_data = np.array(an.do_adaptive_denormalize(np.array(actual_data)))
 
     predData_TM_n_step = np.roll(predict_data_ML, _options.stepsAhead)
 
