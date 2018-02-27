@@ -273,8 +273,31 @@ class GruSettings:
         self.predict_input_shape = (1, self.lookback if not self.lookback_as_features else 1, self.x_dims if not self.lookback_as_features else self.lookback)
         self.rnn_batch_size = 1 if not self.lookback else None #Must be specified for stateful
 
+    def print_settings(self):
+        print "RNN type:", self.rnn_type
+        print "nTrain:", self.nTrain
+        print "Prediction step:", self.predictionStep
+        print "Epochs:", self.epochs
+        print "Batch size:", self.batch_size
+        print "Is online:", self.online
+        print "Retrain:", self.retrain_interval
+        print "Nodes:", self.nodes
+        print "Lookback:", self.lookback
+        print "Lookback as features?:", self.lookback_as_features
+        print "Features:", self.feature_count
+        print "Stateful:", self.stateful
+        print "Loss:", self.loss
+        print "Normalization:", self.normalization_type
+        print "Limit to:", self.limit_to
+        print "Season:", self.season
+        print "Ignore for error:", self.ignore_for_error
+        print "Implmentation:", self.implementation
+        print "Binary?:", self.use_binary
+        print "Dataset:", self.dataSet
+        print "Dataset detailed:", self.dataSetDetailed
 
 def run_gru(s):
+    s.print_settings()
     prob = tf.placeholder_with_default(1.0, shape=()) #Retain probability for TF dropout
 
 
@@ -285,10 +308,11 @@ def run_gru(s):
             raise Exception("Binary Keras not implemented")
         rnn = Sequential()
         if s.rnn_type == "lstm":
-            lstm = LSTM(s.nodes, input_shape=s.rnn_input_shape, batch_size=s.rnn_batch_size, kernel_initializer='he_uniform', stateful=s.stateful, return_sequences=s.return_sequences, dropout=0.5)
-            rnn.add(lstm)
+            rnn_layer = LSTM(s.nodes, input_shape=s.rnn_input_shape, batch_size=s.rnn_batch_size, kernel_initializer='he_uniform', stateful=s.stateful, return_sequences=s.return_sequences)
+            rnn.add(rnn_layer)
         elif s.rnn_type == "gru":
-            rnn.add(GRU(s.nodes, input_shape=s.rnn_input_shape, batch_size=s.rnn_batch_size, kernel_initializer='he_uniform', stateful=s.stateful, return_sequences=s.return_sequences))
+            rnn_layer = GRU(s.nodes, input_shape=s.rnn_input_shape, batch_size=s.rnn_batch_size, kernel_initializer='he_uniform', stateful=s.stateful, return_sequences=s.return_sequences)
+            rnn.add(rnn_layer)
 
         rnn.add(Dropout(0.5))
         rnn.add(Dense(1, kernel_initializer='he_uniform'))
@@ -435,7 +459,7 @@ def run_gru(s):
         for _ in tqdm(range(1)):
             rnn.fit(trainX, trainY, epochs=s.epochs, batch_size=s.batch_size, verbose=min(s.max_verbosity, 2), shuffle=not s.stateful)#, validation_data=(trainX, trainY), callbacks=[TensorBoard(log_dir='./logs', histogram_freq=1, write_grads=True)])
             if s.stateful:
-                lstm.reset_states()
+                rnn_layer.reset_states()
 
     elif s.implementation == "tf":
         sess = tf.Session()
@@ -520,7 +544,7 @@ def run_gru(s):
                     rnn.fit(trainX, trainY, epochs=1, batch_size=s.batch_size, verbose=0,
                             shuffle=not s.stateful)
                     if s.stateful:
-                        lstm.reset_states()
+                        rnn_layer.reset_states()
             elif s.implementation == "tf":
                 for epoch in range(s.epochs):
                     sess.run(minimize, feed_dict={data: trainX, target: trainY, prob: 0.5})
