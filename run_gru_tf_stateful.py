@@ -276,6 +276,7 @@ class GruSettings:
     def print_settings(self):
         print "RNN type:", self.rnn_type
         print "nTrain:", self.nTrain
+        print "lr:", self.lr
         print "Prediction step:", self.predictionStep
         print "Epochs:", self.epochs
         print "Batch size:", self.batch_size
