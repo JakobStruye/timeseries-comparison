@@ -23,32 +23,33 @@ Command line args
 10: lb_as_features
 11: feature_count
 12: implementation 
+13: eps
 """
 
 def run_and_add(results, results_closer):
 
 
-    for i in range(3):
+    for i in range(1000):
         #nodes_log = random.random() * 2.5
         #nodes = max(1, int(round(10.0 ** nodes_log)))
-        nodes = random.randint(10,400)
+        nodes = random.randint(40,400)
         #nodes = 53
-        lr_log = random.random() * -4.0
+        lr_log = random.random() * 3.0 - 4.0
         lr = 10 ** lr_log
         #lr = random.uniform(0.0001,0.001)
         #lr = 0.00077
-        lookback = random.randint(10,200)
+        lookback = random.randint(25,125)
         #lookback = 52
-        retrain_interval = random.randint(1000,2000)
-        retrain_interval = 1250
-        epochs = 50
+        #retrain_interval = random.randint(1000,2000)
+        retrain_interval = 2500
+        epochs = 200
         #epochs = random.randint(60,130)
         online = False
         batch = 64
         lb_as_features = True
-        feature_count = 3
+        feature_count = 1
         implementation = "lstm"
-        eps = '1e-3'
+        eps = '1e-3' if random.random() <  0.5 else '1e-7'
 
         l.acquire()
         print "Running for", nodes, "nodes,", retrain_interval, "retrain,", lr, "learning rate,",\
@@ -89,7 +90,7 @@ if __name__ == '__main__':
     results = dict()
     results_closer = dict()
     threads = []
-    for _ in range(2):
+    for _ in range(28):
         t = threading.Thread(target=run_and_add, args=(results,results_closer))
         threads.append(t)
         t.start()
