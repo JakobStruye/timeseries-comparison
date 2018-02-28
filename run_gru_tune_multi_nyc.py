@@ -4,8 +4,26 @@ import threading
 import subprocess
 import time
 
+random.seed(0)
 l = threading.Lock()
 kill = False
+
+"""
+Command line args
+(0: filename)
+(1: -d)
+(2: dataset name)
+3: nodes
+4: retrain
+5: lr
+6: lookback
+7: epochs
+8: online
+9: batch
+10: lb_as_features
+11: feature_count
+12: implementation 
+"""
 
 def run_and_add(results, results_closer):
 
@@ -23,13 +41,25 @@ def run_and_add(results, results_closer):
         #lookback = 52
         retrain_interval = random.randint(1000,2000)
         retrain_interval = 1250
-        epochs = 500
+        epochs = 50
         #epochs = random.randint(60,130)
+        online = False
+        batch = 64
+        lb_as_features = True
+        feature_count = 3
+        implementation = "lstm"
+        eps = '1e-3'
 
         l.acquire()
-        print "Running for", nodes, "nodes,", retrain_interval, "retrain,", lr, "learning rate,", lookback, "lookback and", epochs, "epochs"
+        print "Running for", nodes, "nodes,", retrain_interval, "retrain,", lr, "learning rate,",\
+            lookback, "lookback and", epochs, "epochs", "not" if not online else "", "online", \
+            batch, "batch", "not" if lb_as_features else "", "lb_as_ft", feature_count, "feature_count", \
+            implementation, eps, 'eps'
         l.release()
-        return_val = subprocess.check_output(["python",  "run_gru_mase.py", "-d", "nyc_taxi", str(nodes), str(retrain_interval), str(lr), str(lookback), str(epochs)])
+        return_val = subprocess.check_output(["python",  "run_gru_mase.py", "-d", "nyc_taxi", str(nodes),
+                                              str(retrain_interval), str(lr), str(lookback), str(epochs),
+                                              str(online), str(batch), str(lb_as_features), str(feature_count),
+                                                                           implementation, eps])
         #mase = float(return_val.split(" ")[0])
         #closer_rate  = float(return_val.split(" ")[1])
         mase = float(return_val)

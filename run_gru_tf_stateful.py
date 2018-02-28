@@ -227,6 +227,8 @@ class GruSettings:
 
     lr = 0.001
 
+    adam_eps = 1e-7
+
     def __init__(self):
         (_options, _args) = _getArgs()
         self.dataSet = _options.dataSet
@@ -274,6 +276,8 @@ class GruSettings:
         self.rnn_batch_size = 1 if not self.lookback else None #Must be specified for stateful
 
     def print_settings(self):
+        if self.max_verbosity < 1:
+            return
         print "RNN type:", self.rnn_type
         print "nTrain:", self.nTrain
         print "lr:", self.lr
@@ -317,9 +321,10 @@ def run_gru(s):
 
         rnn.add(Dropout(0.5))
         rnn.add(Dense(1, kernel_initializer='he_uniform'))
-        opt = adam(lr=s.lr, decay=0.0, epsilon=0.001)#, clipvalue=1.)#1e-3)
+        opt = adam(lr=s.lr, decay=0.0, epsilon=s.adam_eps)#, clipvalue=1.)#1e-3)
         rnn.compile(loss=s.loss, optimizer=opt)
-        print(rnn.summary())
+        if s.max_verbosity > 0:
+            print(rnn.summary())
     elif s.implementation == "tf":
         data = tf.placeholder(tf.float32, (s.batch_size,) + s.rnn_input_shape)  # Number of examples, number of input, dimension of each input
         target = tf.placeholder(tf.float32, (1, 3000, 1)) #TODO s.batch_output_shape)
@@ -447,7 +452,6 @@ def run_gru(s):
         allX= seq_norm[:,0:-s.predictionStep]
         allY = np.reshape(seq_norm[:,-1,0], (-1,))
     predictedInput = np.full((len(allY),), np.nan) #Initialize all predictions to NaN
-    print tf.Session().run(tf.reduce_sum(tf.cast(tf.is_finite(sequence[:]), tf.float32)))
 
 
     trainX = allX[:s.nTrain]
@@ -457,7 +461,7 @@ def run_gru(s):
 
     if s.implementation == "keras":
         #for _ in tqdm(range(s.epochs)):
-        for _ in tqdm(range(1)):
+        for _ in tqdm(range(1), disable=s.max_verbosity == 0):
             rnn.fit(trainX, trainY, epochs=s.epochs, batch_size=s.batch_size, verbose=min(s.max_verbosity, 2), shuffle=not s.stateful)#, validation_data=(trainX, trainY), callbacks=[TensorBoard(log_dir='./logs', histogram_freq=1, write_grads=True)])
             if s.stateful:
                 rnn_layer.reset_states()
@@ -514,7 +518,6 @@ def run_gru(s):
     #predictedInput[s.nTrain + s.predictionStep : len(allX)] =  rnn.predict(np.reshape(allX[s.nTrain + s.predictionStep : len(allX)], (1, 12510, x_dims)))
     latestStart = None
     do_non_lookback = True
-    print "FROM", s.nTrain + s.predictionStep, len(allX)
     for i in tqdm(xrange(s.nTrain + s.predictionStep, len(allX)), disable=s.max_verbosity == 0):
         if i % s.retrain_interval == 0 and s.online:
             do_non_lookback = True
@@ -541,7 +544,7 @@ def run_gru(s):
             trainX = np.reshape(trainX, s.actual_input_shape_train)
             trainY = np.reshape(trainY, s.actual_output_shape_train)
             if s.implementation == "keras":
-                for _ in tqdm(range(s.epochs)):
+                for _ in tqdm(range(s.epochs), disable=s.max_verbosity == 0):
                     rnn.fit(trainX, trainY, epochs=1, batch_size=s.batch_size, verbose=0,
                             shuffle=not s.stateful)
                     if s.stateful:

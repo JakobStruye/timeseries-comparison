@@ -18,7 +18,7 @@ def get_mape(predicted, actual, ignore=None):
     if not ignore:
         ignore = 0
     other = np.nanmean(np.abs(predicted[ignore:] - actual[ignore:]) / actual[ignore:])
-    print other, "vs", np.nansum(np.abs(predicted[ignore:] - actual[ignore:])) / np.nansum(np.abs(actual[ignore:]))
+    #print other, "vs", np.nansum(np.abs(predicted[ignore:] - actual[ignore:])) / np.nansum(np.abs(actual[ignore:]))
 
     return np.nansum(np.abs(predicted[ignore:] - actual[ignore:])) / np.nansum(np.abs(actual[ignore:]))
 
