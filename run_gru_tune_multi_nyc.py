@@ -65,7 +65,7 @@ def run_and_add(results, results_closer):
         mase = float(return_val)
 
         l.acquire()
-        results[(nodes, retrain_interval, lr, lookback, epochs)] = mase
+        results[(nodes, retrain_interval, lr, lookback, epochs, online, batch, lb_as_features,feature_count, implementation, eps)] = mase
         l.release()
 
 
@@ -75,7 +75,9 @@ def print_results(results, results_closer):
         l.acquire()
         sorted_results = sorted(results.items(), key=operator.itemgetter(1))
         for result in sorted_results:
-            print "Nodes:", result[0][0], "  Retrain:", result[0][1], " LR:", result[0][2], " Lookback: ", result[0][3], " Epochs: ", result[0][4], "  MASE:", result[1]
+            print "Nodes:", result[0][0], "  Retrain:", result[0][1], " LR:", result[0][2], " Lookback:", result[0][3],\
+                " Epochs:", result[0][4], " Online:", result[0][5], " Batch:", result[0][6], " as_ft:", result[0][7],\
+                " feats:", result[0][8], " impl:", result[0][9], " eps:", result[0][10], "  MASE:", result[1]
         print "DONE"
         l.release()
         if kill:
@@ -103,4 +105,6 @@ if __name__ == '__main__':
 
     sorted_results = sorted(results.items(), key=operator.itemgetter(1))
     for result in sorted_results:
-        print "Nodes:", result[0][0], "  Retrain:", result[0][1], " LR:", result[0][2], " Lookback: ", result[0][3], " Epochs: ", result[0][4], "  MASE:", result[1]
+        print "Nodes:", result[0][0], "  Retrain:", result[0][1], " LR:", result[0][2], " Lookback:", result[0][3], \
+            " Epochs:", result[0][4], " Online:", result[0][5], " Batch:", result[0][6], " as_ft:", result[0][7], \
+            " feats:", result[0][8], " impl:", result[0][9], " eps:", result[0][10], "  MASE:", result[1]
