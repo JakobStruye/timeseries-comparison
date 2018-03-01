@@ -20,6 +20,28 @@
 # ----------------------------------------------------------------------
 
 
+import numpy as np
+import random as rn
+
+import os
+os.environ['PYTHONHASHSEED'] = '0' #not sure if needed
+
+rn.seed(1)
+np.random.seed(2)
+
+from scipy import random
+random.seed(3)
+
+import tensorflow as tf
+session_conf = tf.ConfigProto(intra_op_parallelism_threads=1, inter_op_parallelism_threads=1)
+from keras import backend as K
+
+tf.set_random_seed(4)
+
+sess = tf.Session(graph=tf.get_default_graph(), config=session_conf)
+K.set_session(sess)
+
+from sys import argv
 import importlib
 
 from optparse import OptionParser
@@ -42,6 +64,10 @@ from data_processing import DataProcessor
 from htmresearch.support.sequence_learning_utils import *
 from matplotlib import rcParams
 import errors
+from nupic.encoders import ScalarEncoder
+from keras.models import Sequential
+from keras.layers import Dense, Dropout
+from keras.optimizers import adam
 from adaptive_normalization import AdaptiveNormalizer
 
 rcParams.update({'figure.autolayout': True})
@@ -128,7 +154,7 @@ def preprocess(df):
             except ValueError:
                 drops.append(df.index[i])
         df = df.drop(df.index[drops])
-        print "Dropped", len(drops)
+        #print "Dropped", len(drops)
     return df
 
 def createModel(modelParams):
@@ -184,7 +210,7 @@ def _getArgs():
                       help="Classifier Type: SDRClassifierRegion or CLAClassifierRegion")
 
     (options, remainder) = parser.parse_args()
-    print options
+    #print options
 
     return options, remainder
 
@@ -193,6 +219,7 @@ def printTPRegionParams(tpregion):
     """
     Note: assumes we are using TemporalMemory/TPShim in the TPRegion
     """
+    return
     tm = tpregion.getSelf()._tfdr
     print "------------PY  TemporalMemory Parameters ------------------"
     print "numberOfCols             =", tm.getColumnDimensions()
@@ -278,17 +305,20 @@ if __name__ == "__main__":
     modelParams['modelParams']['clParams']['steps'] = str(_options.stepsAhead)
     modelParams['modelParams']['clParams']['regionName'] = classifierType
 
-    print "Creating model from %s..." % dataSet
+    #print "Creating model from %s..." % dataSet
 
     # use customized CLA model
-    print modelParams
-    model = ModelFactory.create(modelParams)
-    model.enableInference({"predictedField": predictedField})
-    model.enableLearning()
-    model._spLearningEnabled = True
-    model._tpLearningEnabled = True
+    # print modelParams
+    #model = ModelFactory.create(modelParams)
+    #the_sensor = model._getSensorRegion().getSelf()
+    #print model._getClassifierRegion().getSelf().maxCategoryCount
 
-    printTPRegionParams(model._getTPRegion())
+    #model.enableInference({"predictedField": predictedField})
+    # model.enableLearning()
+    # model._spLearningEnabled = True
+    # model._tpLearningEnabled = True
+
+    # printTPRegionParams(model._getTPRegion())
 
     if dataSet in detailedSets:
         dataSource = "%s/%s" % (dataSet,dataSetDetailed)
@@ -296,15 +326,14 @@ if __name__ == "__main__":
         dataSource = dataSet
     inputData = "%s/%s.csv" % (DATA_DIR, dataSource.replace(" ", "_"))
 
-    sensor = model._getSensorRegion()
-    encoderList = sensor.getSelf().encoder.getEncoderList()
-    if sensor.getSelf().disabledEncoder is not None:
-        classifier_encoder = sensor.getSelf().disabledEncoder.getEncoderList()
-        classifier_encoder = classifier_encoder[0]
-    else:
-        classifier_encoder = None
+    #sensor = model._getSensorRegion()
+    # encoderList = sensor.getSelf().encoder.getEncoderList()
+    # if sensor.getSelf().disabledEncoder is not None:
+    #     classifier_encoder = sensor.getSelf().disabledEncoder.getEncoderList()
+    #     classifier_encoder = classifier_encoder[0]
+    # else:
+    #     classifier_encoder = None
 
-    print "Load dataset: ", dataSet
     skips = data_skips[dataSet]
     df = pd.read_csv(inputData, header=0, skiprows=skips)
     df = preprocess(df)
@@ -331,12 +360,11 @@ if __name__ == "__main__":
     #print df[predictedField]
 
 
-    print " run SP through the first %i samples %i passes " %(nMultiplePass, nTrain)
-    model = runMultiplePassSPonly(df, model, nMultiplePass, nTrain)
-    model._spLearningEnabled = False
-
-    maxBucket = classifier_encoder.n - classifier_encoder.w + 1
-    likelihoodsVecAll = np.zeros((maxBucket, len(df)))
+    #model = runMultiplePassSPonly(df, model, nMultiplePass, nTrain)
+    # model._spLearningEnabled = False
+    #
+    # maxBucket = classifier_encoder.n - classifier_encoder.w + 1
+    # likelihoodsVecAll = np.zeros((maxBucket, len(df)))
 
     prediction_nstep = None
     time_step = []
@@ -350,24 +378,125 @@ if __name__ == "__main__":
     predSegmentNum = []
     predictedActiveColumnsNum = []
     trueBucketIndex = []
-    sp = model._getSPRegion().getSelf()._sfdr
-    spActiveCellsCount = np.zeros(sp.getColumnDimensions())
-
-    output = nupic_output.NuPICFileOutput([dataSet])
-    skips = 0
+    # sp = model._getSPRegion().getSelf()._sfdr
+    # spActiveCellsCount = np.zeros(sp.getColumnDimensions())
+    #
+    #output = nupic_output.NuPICFileOutput([dataSet])
+    # skips = 0
     truths = []
-    predictions = []
+    # predictions = []
     loop_length = len(df) if limit_to is None else limit_to
 
-    for i in tqdm(xrange(loop_length)):
+    pred_n = 109
+    date_n = 100
+    time_n = 600#(29+48-1) * 3
+    use_pred = True
+    use_date = True
+    use_time = True
+    total_n = (pred_n if use_pred else 0) + (date_n if use_date else 0) + (time_n if use_time else 0)
+    enc = ScalarEncoder(29, minval=0, maxval=40000, n=pred_n)
+    encDate = ScalarEncoder(29, minval=0, maxval=7, n=date_n)
+    encTime = ScalarEncoder(29, minval=0, maxval=1411, n=time_n)
+    encOut = ScalarEncoder(29, minval=0, maxval=40000, n=50)
+    nTrain = int(argv[3])
+    batch = int(argv[4])
+    epochs = int(argv[5])
+    epochs_retrain = int(argv[6])
+    lr = float(argv[7])
+    online = True
+
+    # print enc.encode(1)
+    # print enc.encode(2)
+    # print enc.encode(3)
+    # print enc.encode(4)
+    # print enc.encode(5)
+    # exit(1)
+    keras_model = Sequential()
+    keras_model.add(Dropout(0.5, input_shape=(total_n,)))
+    keras_model.add(Dense(22, input_shape=(total_n,), activation='softmax' ))
+    keras_model.compile(loss='categorical_crossentropy', optimizer=adam(lr=lr))
+    data=[]
+    labels=[]
+    for i in range(0,nTrain):
         inputRecord = getInputRecord(df, predictedField, i)
+        encoded = []
+        if use_pred:
+            encoded.extend(enc.encode(inputRecord[predictedField]).tolist())
+        if use_date:
+            encoded.extend(encDate.encode(inputRecord['dayofweek']).tolist())
+        if use_time:
+            encoded.extend(encTime.encode(inputRecord['timeofday']).tolist())
+        data.append(encoded)
+        outputRecord = getInputRecord(df, predictedField, i+5)
+        encodedOut = encOut.encode(outputRecord[predictedField])
+        encodedOutIndex = np.where(encodedOut==1)[0][0]
+        encodedOut = np.zeros((22,), dtype=np.int)
+        encodedOut[encodedOutIndex] = 1
+        labels.append(encodedOut.tolist())
+
+    data = np.reshape(np.array(data), (nTrain, total_n))
+    labels = np.reshape(np.array(labels), (nTrain,22))
+    keras_model.fit(data, labels, epochs=epochs, batch_size=batch, verbose=False)
+
+    bucketVals = 22 * [None]
+
+    for i in xrange(loop_length-5):
+        if online and i % 1000 == 0 and i > 0:
+            data = []
+            labels = []
+            for j in range(i-nTrain-5, i-5):
+                inputRecord = getInputRecord(df, predictedField, j)
+                encoded = []
+                if use_pred:
+                    encoded.extend(enc.encode(inputRecord[predictedField]).tolist())
+                if use_date:
+                    encoded.extend(encDate.encode(inputRecord['dayofweek']).tolist())
+                if use_time:
+                    encoded.extend(encTime.encode(inputRecord['timeofday']).tolist())
+                data.append(encoded)
+                outputRecord = getInputRecord(df, predictedField, j + 5)
+                encodedOut = encOut.encode(outputRecord[predictedField])
+                encodedOutIndex = np.where(encodedOut == 1)[0][0]
+                encodedOut = np.zeros((22,), dtype=np.int)
+                encodedOut[encodedOutIndex] = 1
+                labels.append(encodedOut.tolist())
+
+            data = np.reshape(np.array(data), (nTrain, total_n))
+            labels = np.reshape(np.array(labels), (nTrain, 22))
+            keras_model.fit(data, labels, epochs=epochs_retrain, batch_size=batch, verbose=False)
+        inputRecord = getInputRecord(df, predictedField, i)
+        # print enc.encode(inputRecord[predictedField])
+        encoded = []
+        if use_pred:
+            encoded.extend(enc.encode(inputRecord[predictedField]).tolist())
+        if use_date:
+            encoded.extend(encDate.encode(inputRecord['dayofweek']).tolist())
+        if use_time:
+            encoded.extend(encTime.encode(inputRecord['timeofday']).tolist())
+        # # print encoded, len(encoded)
+        result = keras_model.predict(np.reshape(np.array(encoded), (1,total_n)))
+        index = np.argmax(result)
+        index_to_update = np.argmax(encOut.encode(inputRecord[predictedField]))
+        if bucketVals[index_to_update] is None:
+            bucketVals[index_to_update] = inputRecord[predictedField]
+        else:
+            bucketVals[index_to_update] = 0.7 * bucketVals[index_to_update] + 0.3 * inputRecord[predictedField]
+        result_val = bucketVals[index]
+        if result_val is None:
+            result_val = 0
         #print inputRecord
         # tp = model._getTPRegion()
         # tm = tp.getSelf()._tfdr
         # prePredictiveCells = tm.getPredictiveCells()
         # prePredictiveColumn = np.array(list(prePredictiveCells)) / tm.cellsPerColumn
 
-        result = model.run(inputRecord)
+        # the_sensor.verbosity = 5
+        # the_sensor.topDownMode = True
+        #
+        # outs = dict()
+        # the_sensor.compute(inputRecord, outs)
+        # print outs
+        #result = model.run(inputRecord)
         # trueBucketIndex.append(model._getClassifierInputRecord(inputRecord).bucketIndex)
         #
         # predSegmentNum.append(len(tm.activeSegments))
@@ -397,22 +526,19 @@ if __name__ == "__main__":
         # predictedActiveColumnsNum.append(len(predictedActiveColumns))
 
 
-        last_prediction = prediction_nstep
-        prediction_nstep = \
-            result.inferences["multiStepBestPredictions"][_options.stepsAhead]
+        # last_prediction = prediction_nstep
+        # prediction_nstep = \
+        #     result.inferences["multiStepBestPredictions"][_options.stepsAhead]
+        #
+        # truths.append(inputRecord)
 
-        truths.append(inputRecord)
 
-
-        time_step.append(i)
+        # time_step.append(i)
         actual_data.append(inputRecord[predictedField])
         predict_data_ML.append(
-            result.inferences['multiStepBestPredictions'][_options.stepsAhead])
+            #result.inferences['multiStepBestPredictions'][_options.stepsAhead])
+            result_val)
         #output.write([i], actual_data[i], predict_data_ML[i])
-
-        if i == 7500:
-            print inputRecord[predictedField]
-            print result.inferences['multiStepBestPredictions'][_options.stepsAhead]
 
 
     #predict_data_ML = np.array(an.do_adaptive_denormalize(np.array(predict_data_ML)))
@@ -423,7 +549,7 @@ if __name__ == "__main__":
     #dp.windowed_denormalize(predData_TM_n_step, actual_data)
 
 
-    dp.saveResultToFile(dataSet, np.reshape(predData_TM_n_step, len(predData_TM_n_step)), np.reshape(actual_data, len(actual_data)), 'TM', prediction_step=_options.stepsAhead)
+    dp.saveResultToFile(dataSet, np.reshape(predData_TM_n_step, len(predData_TM_n_step)), np.reshape(actual_data, len(actual_data)), 'TM', prediction_step=_options.stepsAhead, max_verbosity=0)
 
     ignore_for_error = 5500
 
@@ -432,13 +558,15 @@ if __name__ == "__main__":
     # print "NRMSE on test data: ", NRMSE_TM
     predData_TM_n_step[ignore_for_error] = np.nan
     MAPE_TM = errors.get_mape(np.array(predData_TM_n_step), np.array(actual_data), ignore_for_error)
-    print "MAPE on test data: ", MAPE_TM
+    #print "MAPE on test data: ", MAPE_TM
     MASE_TM = errors.get_mase(np.array(predData_TM_n_step), np.array(actual_data), np.roll(np.array(actual_data), 48), ignore_for_error)
 
-    print "MASE on test data: ", MASE_TM
-    output.close()
+    #print "MASE on test data: ", MASE_TM
+    #output.close()
     #mae = np.nanmean(np.abs(actual_data[nTrain:nTrain+nTest]-predData_TM_n_step[nTrain:nTrain+nTest]))
     mae = np.nanmean(np.abs(actual_data[ignore_for_error:] - predData_TM_n_step[ignore_for_error:]))
-    print "MAE {}".format(mae)
+    #print "MAE {}".format(mae)
+
+    print MASE_TM
 
 

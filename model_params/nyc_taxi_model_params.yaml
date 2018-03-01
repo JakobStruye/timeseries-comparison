@@ -78,7 +78,7 @@ modelParams:
         name: timeofday
         maxval: 1411
         minval: 0
-        n: 600
+        n: 76
         periodic: True
         verbosity: 0
         w: 29
@@ -100,7 +100,7 @@ modelParams:
         name: passenger_count
         maxval: 40000
         minval: 0
-        n: 109
+        n: 76
         verbosity: 0
         w: 29
         type: ScalarEncoder
