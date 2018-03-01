@@ -72,7 +72,7 @@ def run_and_add(results, results_closer):
 
 def print_results(results, results_closer):
     while True:
-        time.sleep(5)
+        time.sleep(300)
         l.acquire()
         sorted_results = sorted(results.items(), key=operator.itemgetter(1))
         for result in sorted_results:

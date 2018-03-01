@@ -1,0 +1,248 @@
+Using TensorFlow backend.
+2018-02-27 12:41:37.224428: E tensorflow/stream_executor/cuda/cuda_driver.cc:406] failed call to cuInit: CUDA_ERROR_UNKNOWN
+RNN type: gru
+nTrain: 5000
+Prediction step: 5
+Epochs: 100
+Batch size: 1
+Is online: False
+Retrain: 2500
+Nodes: 30
+Lookback: None
+Lookback as features?: False
+Features: 1
+Stateful: False
+Loss: mae
+Normalization: default
+Limit to: None
+Season: 48
+Ignore for error: 5453
+Implmentation: keras
+Binary?: False
+Dataset: nyc_taxi
+Dataset detailed: None
+_________________________________________________________________
+Layer (type)                 Output Shape              Param #   
+=================================================================
+gru_1 (GRU)                  (1, None, 30)             2880      
+_________________________________________________________________
+dropout_1 (Dropout)          (1, None, 30)             0         
+_________________________________________________________________
+dense_1 (Dense)              (1, None, 1)              31        
+=================================================================
+Total params: 2,911
+Trainable params: 2,911
+Non-trainable params: 0
+_________________________________________________________________
+None
+17520.0
+  0%|          | 0/1 [00:00<?, ?it/s]Epoch 1/100
+ - 2s - loss: 1.3277
+Epoch 2/100
+ - 1s - loss: 1.2989
+Epoch 3/100
+ - 2s - loss: 1.2358
+Epoch 4/100
+ - 2s - loss: 1.1583
+Epoch 5/100
+ - 1s - loss: 1.1314
+Epoch 6/100
+ - 1s - loss: 1.0867
+Epoch 7/100
+ - 1s - loss: 1.0548
+Epoch 8/100
+ - 1s - loss: 1.0290
+Epoch 9/100
+ - 1s - loss: 0.9761
+Epoch 10/100
+ - 1s - loss: 0.9851
+Epoch 11/100
+ - 1s - loss: 0.9474
+Epoch 12/100
+ - 2s - loss: 0.9502
+Epoch 13/100
+ - 1s - loss: 0.9242
+Epoch 14/100
+ - 1s - loss: 0.9259
+Epoch 15/100
+ - 1s - loss: 0.9320
+Epoch 16/100
+ - 1s - loss: 0.9174
+Epoch 17/100
+ - 1s - loss: 0.9149
+Epoch 18/100
+ - 1s - loss: 0.9026
+Epoch 19/100
+ - 1s - loss: 0.9030
+Epoch 20/100
+ - 1s - loss: 0.8927
+Epoch 21/100
+ - 1s - loss: 0.8945
+Epoch 22/100
+ - 1s - loss: 0.8935
+Epoch 23/100
+ - 1s - loss: 0.8940
+Epoch 24/100
+ - 1s - loss: 0.8942
+Epoch 25/100
+ - 1s - loss: 0.8900
+Epoch 26/100
+ - 1s - loss: 0.8723
+Epoch 27/100
+ - 2s - loss: 0.8696
+Epoch 28/100
+ - 2s - loss: 0.8613
+Epoch 29/100
+ - 1s - loss: 0.8654
+Epoch 30/100
+ - 1s - loss: 0.8652
+Epoch 31/100
+ - 1s - loss: 0.8504
+Epoch 32/100
+ - 1s - loss: 0.8493
+Epoch 33/100
+ - 1s - loss: 0.8421
+Epoch 34/100
+ - 1s - loss: 0.8359
+Epoch 35/100
+ - 1s - loss: 0.8244
+Epoch 36/100
+ - 1s - loss: 0.8251
+Epoch 37/100
+ - 1s - loss: 0.8258
+Epoch 38/100
+ - 1s - loss: 0.8122
+Epoch 39/100
+ - 1s - loss: 0.8186
+Epoch 40/100
+ - 1s - loss: 0.8019
+Epoch 41/100
+ - 1s - loss: 0.8186
+Epoch 42/100
+ - 1s - loss: 0.8053
+Epoch 43/100
+ - 1s - loss: 0.7943
+Epoch 44/100
+ - 1s - loss: 0.8111
+Epoch 45/100
+ - 1s - loss: 0.8058
+Epoch 46/100
+ - 1s - loss: 0.7895
+Epoch 47/100
+ - 1s - loss: 0.7781
+Epoch 48/100
+ - 1s - loss: 0.7997
+Epoch 49/100
+ - 1s - loss: 0.7814
+Epoch 50/100
+ - 1s - loss: 0.7710
+Epoch 51/100
+ - 1s - loss: 0.7825
+Epoch 52/100
+ - 1s - loss: 0.7630
+Epoch 53/100
+ - 1s - loss: 0.7754
+Epoch 54/100
+ - 1s - loss: 0.7656
+Epoch 55/100
+ - 1s - loss: 0.7677
+Epoch 56/100
+ - 2s - loss: 0.7647
+Epoch 57/100
+ - 1s - loss: 0.7621
+Epoch 58/100
+ - 1s - loss: 0.7564
+Epoch 59/100
+ - 1s - loss: 0.7461
+Epoch 60/100
+ - 1s - loss: 0.7456
+Epoch 61/100
+ - 1s - loss: 0.7463
+Epoch 62/100
+ - 1s - loss: 0.7489
+Epoch 63/100
+ - 1s - loss: 0.7537
+Epoch 64/100
+ - 1s - loss: 0.7371
+Epoch 65/100
+ - 1s - loss: 0.7446
+Epoch 66/100
+ - 1s - loss: 0.7325
+Epoch 67/100
+ - 1s - loss: 0.7327
+Epoch 68/100
+ - 1s - loss: 0.7365
+Epoch 69/100
+ - 1s - loss: 0.7243
+Epoch 70/100
+ - 1s - loss: 0.7215
+Epoch 71/100
+ - 1s - loss: 0.7155
+Epoch 72/100
+ - 1s - loss: 0.7285
+Epoch 73/100
+ - 1s - loss: 0.7156
+Epoch 74/100
+ - 1s - loss: 0.7061
+Epoch 75/100
+ - 1s - loss: 0.7064
+Epoch 76/100
+ - 1s - loss: 0.7123
+Epoch 77/100
+ - 1s - loss: 0.7205
+Epoch 78/100
+ - 1s - loss: 0.6921
+Epoch 79/100
+ - 1s - loss: 0.7089
+Epoch 80/100
+ - 1s - loss: 0.6909
+Epoch 81/100
+ - 1s - loss: 0.6892
+Epoch 82/100
+ - 1s - loss: 0.7098
+Epoch 83/100
+ - 1s - loss: 0.6957
+Epoch 84/100
+ - 1s - loss: 0.6880
+Epoch 85/100
+ - 1s - loss: 0.6853
+Epoch 86/100
+ - 1s - loss: 0.6933
+Epoch 87/100
+ - 1s - loss: 0.6874
+Epoch 88/100
+ - 1s - loss: 0.6893
+Epoch 89/100
+ - 1s - loss: 0.6858
+Epoch 90/100
+ - 1s - loss: 0.6924
+Epoch 91/100
+ - 1s - loss: 0.6896
+Epoch 92/100
+ - 1s - loss: 0.6856
+Epoch 93/100
+ - 1s - loss: 0.6756
+Epoch 94/100
+ - 1s - loss: 0.6776
+Epoch 95/100
+ - 1s - loss: 0.6684
+Epoch 96/100
+ - 1s - loss: 0.6710
+Epoch 97/100
+ - 1s - loss: 0.6627
+Epoch 98/100
+ - 1s - loss: 0.6646
+Epoch 99/100
+ - 1s - loss: 0.6604
+Epoch 100/100
+ - 1s - loss: 0.6573
+100%|##########| 1/1 [02:12<00:00, 132.66s/it]
+FROM 5005 17473
+  0%|          | 0/12468 [00:00<?, ?it/s]  0%|          | 1/12468 [00:00<3:02:19,  1.14it/s]100%|##########| 12468/12468 [00:00<00:00, 14115.87it/s]
+Saving to ./prediction/nyc_taxi_gru_pred.csv
+ 30 NRMSE 0.715364709836
+MAE 3959.97000016
+1.06832484359 vs 0.263119070209
+MAPE 0.263119070209
+MASE 1.44719785887
+1.44719785887

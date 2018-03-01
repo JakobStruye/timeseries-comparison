@@ -1,0 +1,227 @@
+Using TensorFlow backend.
+2018-02-27 09:38:59.869964: E tensorflow/stream_executor/cuda/cuda_driver.cc:406] failed call to cuInit: CUDA_ERROR_UNKNOWN
+_________________________________________________________________
+Layer (type)                 Output Shape              Param #   
+=================================================================
+gru_1 (GRU)                  (1, None, 300)            273600    
+_________________________________________________________________
+dropout_1 (Dropout)          (1, None, 300)            0         
+_________________________________________________________________
+dense_1 (Dense)              (1, None, 1)              301       
+=================================================================
+Total params: 273,901
+Trainable params: 273,901
+Non-trainable params: 0
+_________________________________________________________________
+None
+52560.0
+  0%|          | 0/1 [00:00<?, ?it/s]Epoch 1/100
+ - 6s - loss: 1.1791
+Epoch 2/100
+ - 5s - loss: 1.0332
+Epoch 3/100
+ - 5s - loss: 1.0505
+Epoch 4/100
+ - 5s - loss: 0.9263
+Epoch 5/100
+ - 5s - loss: 0.8803
+Epoch 6/100
+ - 5s - loss: 0.8679
+Epoch 7/100
+ - 5s - loss: 0.8586
+Epoch 8/100
+ - 5s - loss: 0.8318
+Epoch 9/100
+ - 5s - loss: 0.8029
+Epoch 10/100
+ - 5s - loss: 0.7980
+Epoch 11/100
+ - 5s - loss: 0.7780
+Epoch 12/100
+ - 5s - loss: 0.7541
+Epoch 13/100
+ - 5s - loss: 0.7385
+Epoch 14/100
+ - 5s - loss: 0.7253
+Epoch 15/100
+ - 5s - loss: 0.7001
+Epoch 16/100
+ - 5s - loss: 0.6969
+Epoch 17/100
+ - 5s - loss: 0.6740
+Epoch 18/100
+ - 5s - loss: 0.6501
+Epoch 19/100
+ - 5s - loss: 0.6451
+Epoch 20/100
+ - 5s - loss: 0.6245
+Epoch 21/100
+ - 5s - loss: 0.6168
+Epoch 22/100
+ - 5s - loss: 0.5858
+Epoch 23/100
+ - 5s - loss: 0.5866
+Epoch 24/100
+ - 5s - loss: 0.5729
+Epoch 25/100
+ - 5s - loss: 0.5584
+Epoch 26/100
+ - 5s - loss: 0.5541
+Epoch 27/100
+ - 5s - loss: 0.5310
+Epoch 28/100
+ - 5s - loss: 0.5249
+Epoch 29/100
+ - 5s - loss: 0.5201
+Epoch 30/100
+ - 5s - loss: 0.5060
+Epoch 31/100
+ - 5s - loss: 0.4818
+Epoch 32/100
+ - 5s - loss: 0.4726
+Epoch 33/100
+ - 5s - loss: 0.4676
+Epoch 34/100
+ - 5s - loss: 0.4556
+Epoch 35/100
+ - 5s - loss: 0.4488
+Epoch 36/100
+ - 5s - loss: 0.4416
+Epoch 37/100
+ - 5s - loss: 0.4334
+Epoch 38/100
+ - 5s - loss: 0.4186
+Epoch 39/100
+ - 5s - loss: 0.4160
+Epoch 40/100
+ - 5s - loss: 0.4074
+Epoch 41/100
+ - 5s - loss: 0.3927
+Epoch 42/100
+ - 5s - loss: 0.3905
+Epoch 43/100
+ - 5s - loss: 0.3834
+Epoch 44/100
+ - 5s - loss: 0.3874
+Epoch 45/100
+ - 5s - loss: 0.3652
+Epoch 46/100
+ - 5s - loss: 0.3654
+Epoch 47/100
+ - 5s - loss: 0.3603
+Epoch 48/100
+ - 5s - loss: 0.3536
+Epoch 49/100
+ - 5s - loss: 0.3414
+Epoch 50/100
+ - 5s - loss: 0.3399
+Epoch 51/100
+ - 5s - loss: 0.3351
+Epoch 52/100
+ - 5s - loss: 0.3296
+Epoch 53/100
+ - 5s - loss: 0.3244
+Epoch 54/100
+ - 5s - loss: 0.3193
+Epoch 55/100
+ - 5s - loss: 0.3150
+Epoch 56/100
+ - 5s - loss: 0.3071
+Epoch 57/100
+ - 5s - loss: 0.3014
+Epoch 58/100
+ - 5s - loss: 0.3007
+Epoch 59/100
+ - 5s - loss: 0.2951
+Epoch 60/100
+ - 5s - loss: 0.2919
+Epoch 61/100
+ - 5s - loss: 0.2917
+Epoch 62/100
+ - 5s - loss: 0.2856
+Epoch 63/100
+ - 5s - loss: 0.2826
+Epoch 64/100
+ - 5s - loss: 0.2777
+Epoch 65/100
+ - 5s - loss: 0.2710
+Epoch 66/100
+ - 5s - loss: 0.2735
+Epoch 67/100
+ - 5s - loss: 0.2647
+Epoch 68/100
+ - 5s - loss: 0.2634
+Epoch 69/100
+ - 5s - loss: 0.2593
+Epoch 70/100
+ - 5s - loss: 0.2607
+Epoch 71/100
+ - 5s - loss: 0.2554
+Epoch 72/100
+ - 5s - loss: 0.2562
+Epoch 73/100
+ - 5s - loss: 0.2512
+Epoch 74/100
+ - 5s - loss: 0.2541
+Epoch 75/100
+ - 5s - loss: 0.2482
+Epoch 76/100
+ - 5s - loss: 0.2489
+Epoch 77/100
+ - 5s - loss: 0.2514
+Epoch 78/100
+ - 5s - loss: 0.2391
+Epoch 79/100
+ - 5s - loss: 0.2417
+Epoch 80/100
+ - 5s - loss: 0.2470
+Epoch 81/100
+ - 5s - loss: 0.2374
+Epoch 82/100
+ - 5s - loss: 0.2341
+Epoch 83/100
+ - 5s - loss: 0.2382
+Epoch 84/100
+ - 5s - loss: 0.2389
+Epoch 85/100
+ - 5s - loss: 0.2263
+Epoch 86/100
+ - 5s - loss: 0.2238
+Epoch 87/100
+ - 5s - loss: 0.2305
+Epoch 88/100
+ - 5s - loss: 0.2337
+Epoch 89/100
+ - 5s - loss: 0.2288
+Epoch 90/100
+ - 5s - loss: 0.2199
+Epoch 91/100
+ - 5s - loss: 0.2257
+Epoch 92/100
+ - 5s - loss: 0.2261
+Epoch 93/100
+ - 5s - loss: 0.2296
+Epoch 94/100
+ - 5s - loss: 0.2183
+Epoch 95/100
+ - 5s - loss: 0.2267
+Epoch 96/100
+ - 5s - loss: 0.2237
+Epoch 97/100
+ - 5s - loss: 0.2106
+Epoch 98/100
+ - 5s - loss: 0.2161
+Epoch 99/100
+ - 5s - loss: 0.2182
+Epoch 100/100
+ - 5s - loss: 0.2096
+100%|##########| 1/1 [07:50<00:00, 470.85s/it]
+FROM 5005 17473
+  0%|          | 0/12468 [00:00<?, ?it/s]  0%|          | 1/12468 [00:02<10:02:07,  2.90s/it]100%|##########| 12468/12468 [00:02<00:00, 4289.27it/s]
+Saving to ./prediction/nyc_taxi_gru_pred.csv
+ 300 NRMSE 0.351263879834
+MAE 1570.79092986
+0.962223977974 vs 0.105545991507
+MAPE 0.105545991507
+MASE 0.580520191105
+0.580520191105

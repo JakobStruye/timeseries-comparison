@@ -1,0 +1,78 @@
+{'plot': False, 'stepsAhead': 5, 'dataSetDetailed': 'all_hours', 'classifier': 'SDRClassifierRegion', 'dataSet': 'reddit'}
+Creating model from reddit...
+------------CPP SpatialPooler Parameters ------------------
+iterationNum                = 0
+iterationLearnNum           = 0
+numInputs                   = 2148
+numColumns                  = 2048
+numActiveColumnsPerInhArea  = 40
+potentialPct                = 0.8
+globalInhibition            = 1
+localAreaDensity            = -1
+stimulusThreshold           = 0
+synPermActiveInc            = 0.0001
+synPermInactiveDec          = 0.0005
+synPermConnected            = 0.5
+minPctOverlapDutyCycles     = 0.001
+dutyCyclePeriod             = 1000
+boostStrength               = 0
+spVerbosity                 = 1
+wrapAround                  = 1
+version                     = 2
+CPP SP seed                 = 1956
+------------PY  TemporalMemory Parameters ------------------
+numberOfCols             = (2048,)
+cellsPerColumn           = 16
+minThreshold             = 15
+activationThreshold      = 15
+newSynapseCount          = 32
+initialPerm              = 0.21
+connectedPerm            = 0.5
+permanenceInc            = 0.1
+permanenceDec            = 0.1
+predictedSegmentDecrement= 0.01
+
+Load dataset:  reddit
+ run SP through the first 5 samples 3000 passes 
+run TM through the train data multiple times
+ pass 0, record 0
+ pass 0, record 400
+ pass 0, record 800
+ pass 0, record 1200
+ pass 0, record 1600
+ pass 0, record 2000
+ pass 0, record 2400
+ pass 0, record 2800
+ pass 1, record 0
+ pass 1, record 400
+ pass 1, record 800
+ pass 1, record 1200
+ pass 1, record 1600
+ pass 1, record 2000
+ pass 1, record 2400
+ pass 1, record 2800
+ pass 2, record 0
+ pass 2, record 400
+ pass 2, record 800
+ pass 2, record 1200
+ pass 2, record 1600
+ pass 2, record 2000
+ pass 2, record 2400
+ pass 2, record 2800
+ pass 3, record 0
+ pass 3, record 400
+ pass 3, record 800
+ pass 3, record 1200
+ pass 3, record 1600
+ pass 3, record 2000
+ pass 3, record 2400
+ pass 3, record 2800
+ pass 4, record 0
+ pass 4, record 400
+ pass 4, record 800
+ pass 4, record 1200
+ pass 4, record 1600
+ pass 4, record 2000
+ pass 4, record 2400
+ pass 4, record 2800
+Preparing to output reddit data to ./prediction/reddit_TM_pred.csv
