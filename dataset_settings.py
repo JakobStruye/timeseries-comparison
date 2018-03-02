@@ -1,6 +1,7 @@
 from hour_type import HourType
 
 hour_types = {"nyc_taxi": HourType.TO_MINUTE,
+              "nyc_taxi_perturb": HourType.TO_MINUTE,
               "power": HourType.TO_MINUTE,
               "energy": HourType.TO_MINUTE,
               "reddit": HourType.TO_MINUTE,
@@ -9,6 +10,7 @@ hour_types = {"nyc_taxi": HourType.TO_MINUTE,
 skip_non_floats = ["power"]
 
 predicted_fields = {"nyc_taxi": "passenger_count",
+                    "nyc_taxi_perturb": "passenger_count",
                     "sunspot": "spots",
                     "dodger": "count",
                     "power": "Global_active_power",
@@ -20,6 +22,7 @@ predicted_fields = {"nyc_taxi": "passenger_count",
                     "sin": "data"}
 
 date_formats = {"nyc_taxi": '%Y-%m-%d',
+                "nyc_taxi_perturb": '%Y-%m-%d',
                 "sunspot": '%Y-%m-%d %H:%M:%S',
                 "dodger": '%Y-%m-%d %H:%M:%S',
                 "power": '%d/%m/%Y',
@@ -30,6 +33,7 @@ date_formats = {"nyc_taxi": '%Y-%m-%d',
                 }
 
 data_skips = {"nyc_taxi": [1,2],
+              "nyc_taxi_perturb": [1,2],
               "sunspot": [1,],
               "dodger": [1,2],
               "power": [1,],

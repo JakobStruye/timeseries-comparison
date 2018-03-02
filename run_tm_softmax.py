@@ -66,7 +66,7 @@ from matplotlib import rcParams
 import errors
 from nupic.encoders import ScalarEncoder
 from keras.models import Sequential
-from keras.layers import Dense, Dropout
+from keras.layers import Dense, Dropout, Activation
 from keras.optimizers import adam
 from adaptive_normalization import AdaptiveNormalizer
 
@@ -389,20 +389,31 @@ if __name__ == "__main__":
 
     pred_n = 109
     date_n = 100
-    time_n = 600#(29+48-1) * 3
+    time_n = 600#600#(29+48-1) * 3
     use_pred = True
     use_date = True
     use_time = True
     total_n = (pred_n if use_pred else 0) + (date_n if use_date else 0) + (time_n if use_time else 0)
+    buckets = 22
     enc = ScalarEncoder(29, minval=0, maxval=40000, n=pred_n)
-    encDate = ScalarEncoder(29, minval=0, maxval=7, n=date_n)
+    encDate = ScalarEncoder(29, minval=0, maxval=7, n=date_n,)
     encTime = ScalarEncoder(29, minval=0, maxval=1411, n=time_n)
     encOut = ScalarEncoder(29, minval=0, maxval=40000, n=50)
-    nTrain = int(argv[3])
-    batch = int(argv[4])
-    epochs = int(argv[5])
-    epochs_retrain = int(argv[6])
-    lr = float(argv[7])
+    from_command = False
+    if from_command:
+        nTrain = int(argv[3])
+        batch = int(argv[4])
+        epochs = int(argv[5])
+        epochs_retrain = int(argv[6])
+        lr = float(argv[7])
+        verbose = False
+    else:
+        nTrain = 2000
+        batch = 64
+        lr = 0.02
+        epochs = 300
+        epochs_retrain = 300
+        verbose = True
     online = True
 
     # print enc.encode(1)
@@ -411,9 +422,13 @@ if __name__ == "__main__":
     # print enc.encode(4)
     # print enc.encode(5)
     # exit(1)
+    total_n = 5
     keras_model = Sequential()
-    keras_model.add(Dropout(0.5, input_shape=(total_n,)))
-    keras_model.add(Dense(22, input_shape=(total_n,), activation='softmax' ))
+    keras_model.add(Dense(256, input_dim=total_n))
+    keras_model.add(Activation('relu'))
+    #keras_model.add(Dropout(0.25))
+
+    keras_model.add(Dense(buckets, input_shape=(total_n,), activation='softmax' ))
     keras_model.compile(loss='categorical_crossentropy', optimizer=adam(lr=lr))
     data=[]
     labels=[]
@@ -426,21 +441,26 @@ if __name__ == "__main__":
             encoded.extend(encDate.encode(inputRecord['dayofweek']).tolist())
         if use_time:
             encoded.extend(encTime.encode(inputRecord['timeofday']).tolist())
-        data.append(encoded)
+        time_sin = np.sin(2 * np.pi * inputRecord['timeofday'] / 1410)
+        time_cos = np.cos(2 * np.pi * inputRecord['timeofday'] / 1410)
+        day_sin = np.sin(2 * np.pi * inputRecord['dayofweek'] / 7)
+        day_cos = np.cos(2 * np.pi * inputRecord['dayofweek'] / 7)
+        raw = [inputRecord[predictedField] / 40000.0, time_sin, time_cos, day_sin, day_cos]
+        data.append(raw)
         outputRecord = getInputRecord(df, predictedField, i+5)
         encodedOut = encOut.encode(outputRecord[predictedField])
         encodedOutIndex = np.where(encodedOut==1)[0][0]
-        encodedOut = np.zeros((22,), dtype=np.int)
+        encodedOut = np.zeros((buckets,), dtype=np.int)
         encodedOut[encodedOutIndex] = 1
         labels.append(encodedOut.tolist())
 
     data = np.reshape(np.array(data), (nTrain, total_n))
-    labels = np.reshape(np.array(labels), (nTrain,22))
-    keras_model.fit(data, labels, epochs=epochs, batch_size=batch, verbose=False)
+    labels = np.reshape(np.array(labels), (nTrain,buckets))
+    keras_model.fit(data, labels, epochs=epochs, batch_size=batch, verbose=verbose)
 
-    bucketVals = 22 * [None]
+    bucketVals = buckets * [None]
 
-    for i in xrange(loop_length-5):
+    for i in tqdm(xrange(loop_length-5), disable=not verbose):
         if online and i % 1000 == 0 and i > 0:
             data = []
             labels = []
@@ -453,17 +473,23 @@ if __name__ == "__main__":
                     encoded.extend(encDate.encode(inputRecord['dayofweek']).tolist())
                 if use_time:
                     encoded.extend(encTime.encode(inputRecord['timeofday']).tolist())
-                data.append(encoded)
+
+                time_sin = np.sin(2 * np.pi * inputRecord['timeofday'] / 1410)
+                time_cos = np.cos(2 * np.pi * inputRecord['timeofday'] / 1410)
+                day_sin = np.sin(2 * np.pi * inputRecord['dayofweek'] / 7)
+                day_cos = np.cos(2 * np.pi * inputRecord['dayofweek'] / 7)
+                raw = [inputRecord[predictedField] / 40000.0, time_sin, time_cos, day_sin, day_cos]
+                data.append(raw)
                 outputRecord = getInputRecord(df, predictedField, j + 5)
                 encodedOut = encOut.encode(outputRecord[predictedField])
                 encodedOutIndex = np.where(encodedOut == 1)[0][0]
-                encodedOut = np.zeros((22,), dtype=np.int)
+                encodedOut = np.zeros((buckets,), dtype=np.int)
                 encodedOut[encodedOutIndex] = 1
                 labels.append(encodedOut.tolist())
 
             data = np.reshape(np.array(data), (nTrain, total_n))
-            labels = np.reshape(np.array(labels), (nTrain, 22))
-            keras_model.fit(data, labels, epochs=epochs_retrain, batch_size=batch, verbose=False)
+            labels = np.reshape(np.array(labels), (nTrain, buckets))
+            keras_model.fit(data, labels, epochs=epochs_retrain, batch_size=batch, verbose=verbose)
         inputRecord = getInputRecord(df, predictedField, i)
         # print enc.encode(inputRecord[predictedField])
         encoded = []
@@ -473,8 +499,13 @@ if __name__ == "__main__":
             encoded.extend(encDate.encode(inputRecord['dayofweek']).tolist())
         if use_time:
             encoded.extend(encTime.encode(inputRecord['timeofday']).tolist())
-        # # print encoded, len(encoded)
-        result = keras_model.predict(np.reshape(np.array(encoded), (1,total_n)))
+        time_sin = np.sin(2*np.pi*inputRecord['timeofday']/1410)
+        time_cos = np.cos(2 * np.pi * inputRecord['timeofday'] / 1410)
+        day_sin = np.sin(2 * np.pi * inputRecord['dayofweek'] / 7)
+        day_cos = np.cos(2 * np.pi * inputRecord['dayofweek'] / 7)
+        raw = [inputRecord[predictedField] / 40000.0, time_sin, time_cos, day_sin, day_cos]
+
+        result = keras_model.predict(np.reshape(np.array(raw), (1,total_n)))
         index = np.argmax(result)
         index_to_update = np.argmax(encOut.encode(inputRecord[predictedField]))
         if bucketVals[index_to_update] is None:
@@ -540,7 +571,7 @@ if __name__ == "__main__":
             result_val)
         #output.write([i], actual_data[i], predict_data_ML[i])
 
-
+    print bucketVals
     #predict_data_ML = np.array(an.do_adaptive_denormalize(np.array(predict_data_ML)))
     #actual_data = np.array(an.do_adaptive_denormalize(np.array(actual_data)))
 
@@ -558,10 +589,12 @@ if __name__ == "__main__":
     # print "NRMSE on test data: ", NRMSE_TM
     predData_TM_n_step[ignore_for_error] = np.nan
     MAPE_TM = errors.get_mape(np.array(predData_TM_n_step), np.array(actual_data), ignore_for_error)
-    #print "MAPE on test data: ", MAPE_TM
+    if verbose:
+        print "MAPE on test data: ", MAPE_TM
     MASE_TM = errors.get_mase(np.array(predData_TM_n_step), np.array(actual_data), np.roll(np.array(actual_data), 48), ignore_for_error)
 
-    #print "MASE on test data: ", MASE_TM
+    if verbose:
+        print "MASE on test data: ", MASE_TM
     #output.close()
     #mae = np.nanmean(np.abs(actual_data[nTrain:nTrain+nTest]-predData_TM_n_step[nTrain:nTrain+nTest]))
     mae = np.nanmean(np.abs(actual_data[ignore_for_error:] - predData_TM_n_step[ignore_for_error:]))

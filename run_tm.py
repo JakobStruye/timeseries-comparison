@@ -55,6 +55,7 @@ nMultiplePass = 5
 
 
 model_dict = {"nyc_taxi": "nyc_taxi_model_params",
+              "nyc_taxi_perturb": "nyc_taxi_model_params",
               "sunspot": "sunspot",
               "dodger": "dodger",
               "power": "power",
@@ -66,6 +67,7 @@ model_dict = {"nyc_taxi": "nyc_taxi_model_params",
 
 
 nTrains = {"nyc_taxi": 5000,
+                "nyc_taxi_perturb": 5000,
                     "sunspot": 3000,
                     "dodger": 3000,
                     "power": 3000,
@@ -193,6 +195,7 @@ def printTPRegionParams(tpregion):
     """
     Note: assumes we are using TemporalMemory/TPShim in the TPRegion
     """
+    return
     tm = tpregion.getSelf()._tfdr
     print "------------PY  TemporalMemory Parameters ------------------"
     print "numberOfCols             =", tm.getColumnDimensions()
@@ -350,8 +353,8 @@ if __name__ == "__main__":
     predSegmentNum = []
     predictedActiveColumnsNum = []
     trueBucketIndex = []
-    sp = model._getSPRegion().getSelf()._sfdr
-    spActiveCellsCount = np.zeros(sp.getColumnDimensions())
+    #sp = model._getSPRegion().getSelf()._sfdr
+    #spActiveCellsCount = np.zeros(sp.getColumnDimensions())
 
     output = nupic_output.NuPICFileOutput([dataSet])
     skips = 0
@@ -409,10 +412,6 @@ if __name__ == "__main__":
         predict_data_ML.append(
             result.inferences['multiStepBestPredictions'][_options.stepsAhead])
         #output.write([i], actual_data[i], predict_data_ML[i])
-
-        if i == 7500:
-            print inputRecord[predictedField]
-            print result.inferences['multiStepBestPredictions'][_options.stepsAhead]
 
 
     #predict_data_ML = np.array(an.do_adaptive_denormalize(np.array(predict_data_ML)))
