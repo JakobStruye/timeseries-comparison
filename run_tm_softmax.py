@@ -399,7 +399,7 @@ if __name__ == "__main__":
     encDate = ScalarEncoder(29, minval=0, maxval=7, n=date_n,)
     encTime = ScalarEncoder(29, minval=0, maxval=1411, n=time_n)
     encOut = ScalarEncoder(29, minval=0, maxval=40000, n=50)
-    from_command = False
+    from_command = True
     if from_command:
         nTrain = int(argv[3])
         batch = int(argv[4])
@@ -572,7 +572,7 @@ if __name__ == "__main__":
             result_val)
         #output.write([i], actual_data[i], predict_data_ML[i])
 
-    print bucketVals
+    #print bucketVals
     #predict_data_ML = np.array(an.do_adaptive_denormalize(np.array(predict_data_ML)))
     #actual_data = np.array(an.do_adaptive_denormalize(np.array(actual_data)))
 

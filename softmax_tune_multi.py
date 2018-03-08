@@ -4,7 +4,7 @@ import threading
 import subprocess
 import time
 
-random.seed(0)
+random.seed(1)
 l = threading.Lock()
 kill = False
 
@@ -28,7 +28,7 @@ Command line args
 def run_and_add(results, results_closer):
 
 
-    for i in range(3):
+    for i in range(1000):
         nTrain = random.randint(500, 5000)
 
         batch = 2 ** random.randint(3,10)
@@ -46,7 +46,6 @@ def run_and_add(results, results_closer):
                                               str(batch), str(epochs), str(epochs_retrain), str(lr)])
         #mase = float(return_val.split(" ")[0])
         #closer_rate  = float(return_val.split(" ")[1])
-        print "RET", return_val
         mase = float(return_val)
 
         l.acquire()
@@ -56,7 +55,7 @@ def run_and_add(results, results_closer):
 
 def print_results(results, results_closer):
     while True:
-        time.sleep(5)
+        time.sleep(300)
         l.acquire()
         sorted_results = sorted(results.items(), key=operator.itemgetter(1))
         for result in sorted_results:
@@ -75,7 +74,7 @@ if __name__ == '__main__':
     results = dict()
     results_closer = dict()
     threads = []
-    for _ in range(2):
+    for _ in range(28):
         t = threading.Thread(target=run_and_add, args=(results,results_closer))
         threads.append(t)
         t.start()

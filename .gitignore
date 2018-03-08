@@ -4,3 +4,4 @@ tune_nyc1
 results/event*
 prediction/*
 logs/
+early_tune_outs/
