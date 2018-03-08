@@ -441,6 +441,7 @@ if __name__ == "__main__":
             encoded.extend(encDate.encode(inputRecord['dayofweek']).tolist())
         if use_time:
             encoded.extend(encTime.encode(inputRecord['timeofday']).tolist())
+        #https://ianlondon.github.io/blog/encoding-cyclical-features-24hour-time/
         time_sin = np.sin(2 * np.pi * inputRecord['timeofday'] / 1410)
         time_cos = np.cos(2 * np.pi * inputRecord['timeofday'] / 1410)
         day_sin = np.sin(2 * np.pi * inputRecord['dayofweek'] / 7)
