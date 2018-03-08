@@ -227,7 +227,8 @@ class Suite(PyExperimentSuite):
     elif params['output_encoding'] == 'likelihood':
       self.net = buildNetwork(self.nDimInput, params['num_cells'], self.nDimOutput,
                          hiddenclass=LSTMLayer, bias=True, outclass=SigmoidLayer, recurrent=True)
-
+    print self.net['out']
+    print self.net['hidden0']
     self.trainer = BackpropTrainer(self.net,
                           dataset=SequentialDataSet(self.nDimInput, self.nDimOutput),
                           learningrate=0.01,

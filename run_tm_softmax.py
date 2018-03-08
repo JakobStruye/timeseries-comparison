@@ -408,11 +408,11 @@ if __name__ == "__main__":
         lr = float(argv[7])
         verbose = False
     else:
-        nTrain = 2000
-        batch = 64
-        lr = 0.02
-        epochs = 300
-        epochs_retrain = 300
+        nTrain = 3902
+        batch = 1024
+        lr = 0.00475275755832
+        epochs = 670
+        epochs_retrain = 670
         verbose = True
     online = True
 
@@ -582,25 +582,25 @@ if __name__ == "__main__":
 
 
     dp.saveResultToFile(dataSet, np.reshape(predData_TM_n_step, len(predData_TM_n_step)), np.reshape(actual_data, len(actual_data)), 'TM', prediction_step=_options.stepsAhead, max_verbosity=0)
+    for ignore_for_error in [5000, 6000, 7000, 8000, 9000, 10000, 1100, 12000, 13000, 14000, 15000]:
+    #ignore_for_error = 5500
 
-    ignore_for_error = 5500
+        # nTest = len(actual_data) - nTrain - _options.stepsAhead
+        # NRMSE_TM = NRMSE(actual_data[nTrain:nTrain+nTest], predData_TM_n_step[nTrain:nTrain+nTest])
+        # print "NRMSE on test data: ", NRMSE_TM
+        predData_TM_n_step[ignore_for_error] = np.nan
+        MAPE_TM = errors.get_mape(np.array(predData_TM_n_step), np.array(actual_data), ignore_for_error)
+        if verbose:
+            print "MAPE on test data: ", MAPE_TM
+        MASE_TM = errors.get_mase(np.array(predData_TM_n_step), np.array(actual_data), np.roll(np.array(actual_data), 48), ignore_for_error)
 
-    # nTest = len(actual_data) - nTrain - _options.stepsAhead
-    # NRMSE_TM = NRMSE(actual_data[nTrain:nTrain+nTest], predData_TM_n_step[nTrain:nTrain+nTest])
-    # print "NRMSE on test data: ", NRMSE_TM
-    predData_TM_n_step[ignore_for_error] = np.nan
-    MAPE_TM = errors.get_mape(np.array(predData_TM_n_step), np.array(actual_data), ignore_for_error)
-    if verbose:
-        print "MAPE on test data: ", MAPE_TM
-    MASE_TM = errors.get_mase(np.array(predData_TM_n_step), np.array(actual_data), np.roll(np.array(actual_data), 48), ignore_for_error)
+        if verbose:
+            print "MASE on test data: ", MASE_TM
+        #output.close()
+        #mae = np.nanmean(np.abs(actual_data[nTrain:nTrain+nTest]-predData_TM_n_step[nTrain:nTrain+nTest]))
+        mae = np.nanmean(np.abs(actual_data[ignore_for_error:] - predData_TM_n_step[ignore_for_error:]))
+        #print "MAE {}".format(mae)
 
-    if verbose:
-        print "MASE on test data: ", MASE_TM
-    #output.close()
-    #mae = np.nanmean(np.abs(actual_data[nTrain:nTrain+nTest]-predData_TM_n_step[nTrain:nTrain+nTest]))
-    mae = np.nanmean(np.abs(actual_data[ignore_for_error:] - predData_TM_n_step[ignore_for_error:]))
-    #print "MAE {}".format(mae)
-
-    print MASE_TM
+        print MASE_TM
 
 

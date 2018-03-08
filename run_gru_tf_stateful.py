@@ -296,7 +296,7 @@ class GruSettings:
         print "Limit to:", self.limit_to
         print "Season:", self.season
         print "Ignore for error:", self.ignore_for_error
-        print "Implmentation:", self.implementation
+        print "Implementation:", self.implementation
         print "Binary?:", self.use_binary
         print "Dataset:", self.dataSet
         print "Dataset detailed:", self.dataSetDetailed
@@ -593,25 +593,27 @@ def run_gru(s):
     #print "Last not to change:", predictedInput[-996], targetInput[-996]
     #print "First to change:", predictedInput[-995], targetInput[-995]
     dp.saveResultToFile(s.dataSet, predictedInput, targetInput, 'gru', s.predictionStep, s.max_verbosity)
-    skipTrain = s.ignore_for_error
-    from plot import computeSquareDeviation
-    squareDeviation = computeSquareDeviation(predictedInput, targetInput)
-    squareDeviation[:skipTrain] = None
-    nrmse = np.sqrt(np.nanmean(squareDeviation)) / np.nanstd(targetInput)
-    if s.max_verbosity > 0:
-        print "", s.nodes, "NRMSE {}".format(nrmse)
-    mae = np.nanmean(np.abs(targetInput-predictedInput))
-    if s.max_verbosity > 0:
-        print "MAE {}".format(mae)
-    mape = errors.get_mape(predictedInput,targetInput, s.ignore_for_error)
-    if s.max_verbosity > 0:
-            print "MAPE {}".format(mape)
-    mase = errors.get_mase(predictedInput, targetInput, np.roll(targetInput, s.season), s.ignore_for_error)
-    if s.max_verbosity > 0:
-        print "MASE {}".format(mase)
+    for skipTrain in [5000, 5500, 6000, 7000, 8000, 9000, 10000, 11000, 12000, 13000, 14000, 15000]:
+        print skipTrain
+        #skipTrain = s.ignore_for_error
+        from plot import computeSquareDeviation
+        squareDeviation = computeSquareDeviation(predictedInput, targetInput)
+        squareDeviation[:skipTrain] = None
+        nrmse = np.sqrt(np.nanmean(squareDeviation)) / np.nanstd(targetInput)
+        if s.max_verbosity > 0:
+            print "", s.nodes, "NRMSE {}".format(nrmse)
+        mae = np.nanmean(np.abs(targetInput-predictedInput))
+        if s.max_verbosity > 0:
+            print "MAE {}".format(mae)
+        mape = errors.get_mape(predictedInput,targetInput, skipTrain)
+        if s.max_verbosity > 0:
+                print "MAPE {}".format(mape)
+        mase = errors.get_mase(predictedInput, targetInput, np.roll(targetInput, s.season), skipTrain)
+        if s.max_verbosity > 0:
+            print "MASE {}".format(mase)
 
-    if s.implementation == "tf":
-        sess.close()
+        if s.implementation == "tf":
+            sess.close()
     return mase
 
 if __name__ == "__main__":

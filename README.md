@@ -1,16 +1,13 @@
 # Description
 
-Run HTM and other competing algorithms on continuous time series prediction problem
-
-This experiment is used in 
-
-Cui Y, Ahmad S, Hawkins J. Continuous online sequence learning with an unsupervised neural network model. (2016) *Neural Computation,* 28(11) 2474-2504.  DOI: 10.1162/NECO_a_00893
 
 
 # Example Usage
 
-run HTM sequence memory on continuous time series prediction problems
+run modified HTM tests 
 
+    # configure model_params/nyc_taxi_model_params.yaml:
+    #   set spEnable, tmEnable
 	python run_tm_model.py -d DATASET
 
 Existing dataset includes nyc_taxi, nyc_taxi_perturb, sine, rec-center-hourly, 
