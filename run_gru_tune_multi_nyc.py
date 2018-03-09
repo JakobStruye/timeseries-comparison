@@ -39,22 +39,23 @@ def run_and_add(results, results_closer):
         #lr = random.uniform(0.0001,0.001)
         #lr = 0.00077
         lookback = random.randint(25,125)
+        #lookback = None
         #lookback = 52
         #retrain_interval = random.randint(1000,2000)
-        retrain_interval = 2500
-        epochs = 200
+        retrain_interval = 2000
+        epochs = 300
         #epochs = random.randint(60,130)
         online = False
-        batch = 64
-        lb_as_features = True
-        feature_count = 1
+        batch = 2 ** (random.randint(6,11))
+        lb_as_features = False
+        feature_count = 3
         implementation = "lstm"
         eps = '1e-3' if random.random() <  0.5 else '1e-7'
 
         l.acquire()
         print "Running for", nodes, "nodes,", retrain_interval, "retrain,", lr, "learning rate,",\
             lookback, "lookback and", epochs, "epochs", "not" if not online else "", "online", \
-            batch, "batch", "not" if lb_as_features else "", "lb_as_ft", feature_count, "feature_count", \
+            batch, "batch", "not" if not lb_as_features else "", "lb_as_ft", feature_count, "feature_count", \
             implementation, eps, 'eps'
         l.release()
         return_val = subprocess.check_output(["python",  "run_gru_mase.py", "-d", "nyc_taxi", str(nodes),
@@ -92,7 +93,7 @@ if __name__ == '__main__':
     results = dict()
     results_closer = dict()
     threads = []
-    for _ in range(28):
+    for _ in range(12):
         t = threading.Thread(target=run_and_add, args=(results,results_closer))
         threads.append(t)
         t.start()

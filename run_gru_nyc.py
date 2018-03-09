@@ -4,12 +4,12 @@ from run_gru_tf_stateful import GruSettings, run_gru
 
 settings = GruSettings()
 settings.max_verbosity = 2
-settings.epochs = 100
-settings.online = True
+settings.epochs = 300
+settings.online = False
 nodes = 300 #317
 lr = 0.005#0.0031802801373# 0.0077
 settings.nodes = nodes
-settings.batch_size = 64
+settings.batch_size = 128
 settings.lr = lr
 settings.loss = 'mae'
 settings.stateful=False

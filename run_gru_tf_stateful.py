@@ -461,7 +461,7 @@ def run_gru(s):
 
     if s.implementation == "keras":
         #for _ in tqdm(range(s.epochs)):
-        for _ in tqdm(range(1), disable=s.max_verbosity == 0):
+        for _ in range(1):
             rnn.fit(trainX, trainY, epochs=s.epochs, batch_size=s.batch_size, verbose=min(s.max_verbosity, 2), shuffle=not s.stateful)#, validation_data=(trainX, trainY), callbacks=[TensorBoard(log_dir='./logs', histogram_freq=1, write_grads=True)])
             if s.stateful:
                 rnn_layer.reset_states()

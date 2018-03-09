@@ -19,7 +19,7 @@
 # http://numenta.org/licenses/
 # ----------------------------------------------------------------------
 
-
+import timeit
 import importlib
 
 from optparse import OptionParser
@@ -333,11 +333,11 @@ if __name__ == "__main__":
     #print df
     #print df[predictedField]
 
-
+    start_time = timeit.default_timer()
     print " run SP through the first %i samples %i passes " %(nMultiplePass, nTrain)
     model = runMultiplePassSPonly(df, model, nMultiplePass, nTrain)
     model._spLearningEnabled = False
-
+    print "pretrain time", (timeit.default_timer() - start_time)
     maxBucket = classifier_encoder.n - classifier_encoder.w + 1
     likelihoodsVecAll = np.zeros((maxBucket, len(df)))
 
@@ -428,7 +428,7 @@ if __name__ == "__main__":
     #actual_data = np.array(an.do_adaptive_denormalize(np.array(actual_data)))
 
     predData_TM_n_step = np.roll(predict_data_ML, _options.stepsAhead)
-
+    print "Final time", (timeit.default_timer() - start_time)
     #dp.windowed_denormalize(predData_TM_n_step, actual_data)
 
 
