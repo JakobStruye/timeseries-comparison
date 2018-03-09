@@ -128,6 +128,7 @@ def getX(seq_full, s):
             result_col.append(col[i-s.lookback: i])
         else:
             result_col.append(np.reshape(np.array(col[i - 1]), (1,s.x_dims))) #...welp
+
     return np.array(result_col)
 
 
@@ -262,9 +263,8 @@ class GruSettings:
         self.front_buffer = max(self.season - self.predictionStep, self.lookback)
         if self.ignore_for_error: #offset for values not predicted
             self.ignore_for_error-= (self.front_buffer + self.predictionStep - 1)
-        self.x_dims = self.lookback if self.lookback_as_features else self.feature_count
-        if self.lookback_as_features:
-            self.feature_count = 1
+        self.x_dims = self.lookback * self.feature_count if self.lookback_as_features else self.feature_count
+
         self.time_steps_train = self.nTrain if not self.lookback else self.lookback if not self.lookback_as_features else 1
         self.return_sequences = not self.lookback
         self.train_samples_count = 1 if not self.lookback else self.nTrain
@@ -272,7 +272,7 @@ class GruSettings:
         self.actual_output_shape_train = (1, -1,1) if self.return_sequences else (-1,1)
         self.rnn_input_shape = (None, self.x_dims)
         self.batch_output_shape = (self.batch_size, self.x_dims)
-        self.predict_input_shape = (1, self.lookback if not self.lookback_as_features else 1, self.x_dims if not self.lookback_as_features else self.lookback)
+        self.predict_input_shape = (1, self.lookback if not self.lookback_as_features else 1, self.x_dims)
         self.rnn_batch_size = 1 if not self.lookback else None #Must be specified for stateful
 
     def print_settings(self):
@@ -313,14 +313,14 @@ def run_gru(s):
             raise Exception("Binary Keras not implemented")
         rnn = Sequential()
         if s.rnn_type == "lstm":
-            rnn_layer = LSTM(s.nodes, input_shape=s.rnn_input_shape, batch_size=s.rnn_batch_size, kernel_initializer='he_uniform', stateful=s.stateful, return_sequences=s.return_sequences)
+            rnn_layer = LSTM(s.nodes, input_shape=s.rnn_input_shape, batch_size=s.rnn_batch_size, stateful=s.stateful, return_sequences=s.return_sequences)
             rnn.add(rnn_layer)
         elif s.rnn_type == "gru":
-            rnn_layer = GRU(s.nodes, input_shape=s.rnn_input_shape, batch_size=s.rnn_batch_size, kernel_initializer='he_uniform', stateful=s.stateful, return_sequences=s.return_sequences)
+            rnn_layer = GRU(s.nodes, input_shape=s.rnn_input_shape, batch_size=s.rnn_batch_size,  stateful=s.stateful, return_sequences=s.return_sequences)
             rnn.add(rnn_layer)
 
         rnn.add(Dropout(0.5))
-        rnn.add(Dense(1, kernel_initializer='he_uniform'))
+        rnn.add(Dense(1))
         opt = adam(lr=s.lr, decay=0.0, epsilon=s.adam_eps)#, clipvalue=1.)#1e-3)
         rnn.compile(loss=s.loss, optimizer=opt)
         if s.max_verbosity > 0:
@@ -395,6 +395,7 @@ def run_gru(s):
 
     #Get rid of unneeded columns
     sequence = sequence[:,0:s.feature_count]
+
     #sequence[-1000,0] = 666
     #print "Changed -1000 to 666"
 
@@ -458,6 +459,7 @@ def run_gru(s):
     trainY = allY[:s.nTrain]
     trainX = np.reshape(trainX, s.actual_input_shape_train)
     trainY = np.reshape(trainY, s.actual_output_shape_train)
+
 
     if s.implementation == "keras":
         #for _ in tqdm(range(s.epochs)):
@@ -593,27 +595,25 @@ def run_gru(s):
     #print "Last not to change:", predictedInput[-996], targetInput[-996]
     #print "First to change:", predictedInput[-995], targetInput[-995]
     dp.saveResultToFile(s.dataSet, predictedInput, targetInput, 'gru', s.predictionStep, s.max_verbosity)
-    for skipTrain in [5000, 5500, 6000, 7000, 8000, 9000, 10000, 11000, 12000, 13000, 14000, 15000]:
-        print skipTrain
-        #skipTrain = s.ignore_for_error
-        from plot import computeSquareDeviation
-        squareDeviation = computeSquareDeviation(predictedInput, targetInput)
-        squareDeviation[:skipTrain] = None
-        nrmse = np.sqrt(np.nanmean(squareDeviation)) / np.nanstd(targetInput)
-        if s.max_verbosity > 0:
-            print "", s.nodes, "NRMSE {}".format(nrmse)
-        mae = np.nanmean(np.abs(targetInput-predictedInput))
-        if s.max_verbosity > 0:
-            print "MAE {}".format(mae)
-        mape = errors.get_mape(predictedInput,targetInput, skipTrain)
-        if s.max_verbosity > 0:
-                print "MAPE {}".format(mape)
-        mase = errors.get_mase(predictedInput, targetInput, np.roll(targetInput, s.season), skipTrain)
-        if s.max_verbosity > 0:
-            print "MASE {}".format(mase)
+    skipTrain = s.ignore_for_error
+    from plot import computeSquareDeviation
+    squareDeviation = computeSquareDeviation(predictedInput, targetInput)
+    squareDeviation[:skipTrain] = None
+    nrmse = np.sqrt(np.nanmean(squareDeviation)) / np.nanstd(targetInput)
+    if s.max_verbosity > 0:
+        print "", s.nodes, "NRMSE {}".format(nrmse)
+    mae = np.nanmean(np.abs(targetInput-predictedInput))
+    if s.max_verbosity > 0:
+        print "MAE {}".format(mae)
+    mape = errors.get_mape(predictedInput,targetInput, skipTrain)
+    if s.max_verbosity > 0:
+            print "MAPE {}".format(mape)
+    mase = errors.get_mase(predictedInput, targetInput, np.roll(targetInput, s.season), skipTrain)
+    if s.max_verbosity > 0:
+        print "MASE {}".format(mase)
 
-        if s.implementation == "tf":
-            sess.close()
+    if s.implementation == "tf":
+        sess.close()
     return mase
 
 if __name__ == "__main__":

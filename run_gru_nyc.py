@@ -4,9 +4,9 @@ from run_gru_tf_stateful import GruSettings, run_gru
 
 settings = GruSettings()
 settings.max_verbosity = 2
-settings.epochs = 300
+settings.epochs = 10
 settings.online = False
-nodes = 300 #317
+nodes = 20 #317
 lr = 0.005#0.0031802801373# 0.0077
 settings.nodes = nodes
 settings.batch_size = 128
@@ -15,7 +15,7 @@ settings.loss = 'mae'
 settings.stateful=False
 settings.lookback = 75  #None to not use lookbacks
 settings.lookback_as_features=True #Considers each lookback value a separate feature if True, ignored if lookback is None
-settings.feature_count = 1 #Uses the first `feature_count` selected columns as features, ignored if `lookback_as_features`
+settings.feature_count = 3 #Uses the first `feature_count` selected columns as features, ignored if `lookback_as_features`
 settings.predictionStep = 5
 settings.season = 48
 settings.adam_eps = 0.001
