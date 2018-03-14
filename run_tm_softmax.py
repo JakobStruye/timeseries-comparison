@@ -36,6 +36,9 @@ import tensorflow as tf
 session_conf = tf.ConfigProto(intra_op_parallelism_threads=1, inter_op_parallelism_threads=1)
 from keras import backend as K
 
+from keras.callbacks import TensorBoard
+
+
 tf.set_random_seed(4)
 
 sess = tf.Session(graph=tf.get_default_graph(), config=session_conf)
@@ -69,6 +72,8 @@ from keras.models import Sequential
 from keras.layers import Dense, Dropout, Activation
 from keras.optimizers import adam
 from adaptive_normalization import AdaptiveNormalizer
+
+from binary_ops import discrete_sigmoid
 
 rcParams.update({'figure.autolayout': True})
 rcParams['pdf.fonttype'] = 42
@@ -399,7 +404,7 @@ if __name__ == "__main__":
     encDate = ScalarEncoder(29, minval=0, maxval=7, n=date_n,)
     encTime = ScalarEncoder(29, minval=0, maxval=1411, n=time_n)
     encOut = ScalarEncoder(29, minval=0, maxval=40000, n=50)
-    from_command = True
+    from_command = False
     if from_command:
         nTrain = int(argv[3])
         batch = int(argv[4])
@@ -424,8 +429,8 @@ if __name__ == "__main__":
     # exit(1)
     total_n = 5
     keras_model = Sequential()
-    keras_model.add(Dense(256, input_dim=total_n))
-    keras_model.add(Activation('relu'))
+    keras_model.add(Dense(41, input_dim=total_n, activation=discrete_sigmoid))
+    #keras_model.add(Activation(discrete_sigmoid))
     #keras_model.add(Dropout(0.25))
 
     keras_model.add(Dense(buckets, input_shape=(total_n,), activation='softmax' ))
@@ -457,12 +462,12 @@ if __name__ == "__main__":
 
     data = np.reshape(np.array(data), (nTrain, total_n))
     labels = np.reshape(np.array(labels), (nTrain,buckets))
-    keras_model.fit(data, labels, epochs=epochs, batch_size=batch, verbose=verbose)
+    keras_model.fit(data, labels, epochs=epochs, batch_size=batch, verbose=verbose, validation_data=(data, labels))#, callbacks=[TensorBoard(log_dir='./logs', histogram_freq=1, write_grads=True)])
 
     bucketVals = buckets * [None]
 
     for i in tqdm(xrange(loop_length-5), disable=not verbose):
-        if online and i % 1000 == 0 and i > 0:
+        if online and i % 2500 == 0 and i > 0:
             data = []
             labels = []
             for j in range(i-nTrain-5, i-5):
@@ -582,7 +587,7 @@ if __name__ == "__main__":
 
 
     dp.saveResultToFile(dataSet, np.reshape(predData_TM_n_step, len(predData_TM_n_step)), np.reshape(actual_data, len(actual_data)), 'TM', prediction_step=_options.stepsAhead, max_verbosity=0)
-    for ignore_for_error in [5000, 6000, 7000, 8000, 9000, 10000, 1100, 12000, 13000, 14000, 15000]:
+    for ignore_for_error in [5500, 10000]:
     #ignore_for_error = 5500
 
         # nTest = len(actual_data) - nTrain - _options.stepsAhead

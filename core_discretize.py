@@ -38,6 +38,8 @@ from tensorflow.python.ops import math_ops
 from tensorflow.python.ops import nn
 from tensorflow.python.ops import standard_ops
 from tensorflow import sign, get_default_graph, clip_by_value
+import keras.backend as K
+
 
 binarize_enabled = False
 def binarize(x):
@@ -54,6 +56,11 @@ def binarize(x):
             x=clip_by_value(x,-1,1)
             return sign(x)
 
+def discrete_sigmoid(x):
+
+    s = K.sigmoid(x)
+    s_disc = K.round(K.sigmoid(x) * 1024) / 1024.0
+    return s + K.stop_gradient(s_disc - s)
 
 class Dense(base.Layer):
   """Densely-connected layer class.

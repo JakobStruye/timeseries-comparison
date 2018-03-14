@@ -43,7 +43,7 @@ from keras.models import Sequential
 from keras.layers import Dense, LSTM, Dropout, GRU
 from keras.optimizers import adam, rmsprop
 from adaptive_normalization import AdaptiveNormalizer
-import core_binary
+import core_discretize
 
 
 detailedSets = ["reddit"] #with more than 1 csv
@@ -323,7 +323,7 @@ def run_gru(s):
         if not s.use_binary:
             dense = tf.layers.dense(val, 1)
         else:
-            dense = core_binary.dense(val, 1)
+            dense = core_discretize.dense(val, 1)
         with tf.name_scope('dense_summaries'):
             var = dense
             mean = tf.reduce_mean(var)

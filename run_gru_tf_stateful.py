@@ -35,11 +35,12 @@ import rnn_tf
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, GRU, LSTM
 #from recurrent import LSTM, GRU
-from keras.optimizers import adam
+from keras.optimizers import adam, sgd, rmsprop
 from keras.callbacks import TensorBoard
 from adaptive_normalization import AdaptiveNormalizer
-import core_binary
+import core_discretize
 import time
+
 
 np.set_printoptions(suppress=True) #no scientific notation
 
@@ -219,9 +220,13 @@ class GruSettings:
     ignore_for_error = None
 
     normalization_type = 'default' #'default', 'windowed' or 'AN' (adaptive normalization
-    implementation = "tf" #"tf" or "keras"
+    cutoff_normalize = True
+    implementation = "keras" #"tf" or "keras"
     rnn_type = "lstm" #"lstm" or "gru"
     use_binary = False
+
+    reset_on_retrain = False
+    refeed_on_retrain = False
 
     dataSet = None
     dataSetDetailed = None
@@ -262,7 +267,8 @@ class GruSettings:
         #and filling the lookback window
         self.front_buffer = max(self.season - self.predictionStep, self.lookback)
         if self.ignore_for_error: #offset for values not predicted
-            self.ignore_for_error-= (self.front_buffer + self.predictionStep - 1)
+            for i in range(len(self.ignore_for_error)):
+                self.ignore_for_error[i]-= (self.front_buffer + self.predictionStep - 1)
         self.x_dims = self.lookback * self.feature_count if self.lookback_as_features else self.feature_count
 
         self.time_steps_train = self.nTrain if not self.lookback else self.lookback if not self.lookback_as_features else 1
@@ -319,70 +325,13 @@ def run_gru(s):
             rnn_layer = GRU(s.nodes, input_shape=s.rnn_input_shape, batch_size=s.rnn_batch_size,  stateful=s.stateful, return_sequences=s.return_sequences)
             rnn.add(rnn_layer)
 
-        rnn.add(Dropout(0.5))
+        #rnn.add(Dropout(0.5))
         rnn.add(Dense(1))
         opt = adam(lr=s.lr, decay=0.0, epsilon=s.adam_eps)#, clipvalue=1.)#1e-3)
+        #opt = rmsprop(lr=s.lr)
         rnn.compile(loss=s.loss, optimizer=opt)
         if s.max_verbosity > 0:
             print(rnn.summary())
-    elif s.implementation == "tf":
-        data = tf.placeholder(tf.float32, (s.batch_size,) + s.rnn_input_shape)  # Number of examples, number of input, dimension of each input
-        target = tf.placeholder(tf.float32, (1, 3000, 1)) #TODO s.batch_output_shape)
-        print data, target
-        if s.rnn_type == "lstm" and s.use_binary:
-            cell = rnn_tf.LSTMCell(s.nodes)
-
-        elif s.rnn_type == "lstm" and not s.use_binary:
-            cell = tf.nn.rnn_cell.LSTMCell(s.nodes)
-        elif s.rnn_type == "gru" and s.use_binary:
-            cell = rnn_tf.GRUCell(s.nodes)
-        elif s.rnn_type == "gru" and not s.use_binary:
-            cell = tf.nn.rnn_cell.GRUCell(s.nodes)
-
-
-        val, _ = tf.nn.dynamic_rnn(cell, data, dtype=tf.float32)
-
-        with tf.name_scope('rnn_summaries'):
-            var = val
-            mean = tf.reduce_mean(var)
-            tf.summary.scalar('mean', mean)
-            with tf.name_scope('stddev'):
-                stddev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
-            tf.summary.scalar('stddev', stddev)
-            tf.summary.scalar('max', tf.reduce_max(var))
-            tf.summary.scalar('min', tf.reduce_min(var))
-            tf.summary.histogram('histogram', var)
-
-        val = tf.nn.dropout(val, prob)
-        if not s.use_binary:
-            dense = tf.layers.dense(val, 1)
-        else:
-            dense = core_binary.dense(val, 1)
-
-        with tf.name_scope('dense_summaries'):
-            var = dense
-            mean = tf.reduce_mean(var)
-            tf.summary.scalar('mean', mean)
-            with tf.name_scope('stddev'):
-                stddev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
-            tf.summary.scalar('stddev', stddev)
-            tf.summary.scalar('max', tf.reduce_max(var))
-            tf.summary.scalar('min', tf.reduce_min(var))
-            tf.summary.histogram('histogram', var)
-
-        pred = tf.reshape(dense, (tf.shape(dense)[0], 1))
-
-        summary = tf.summary.merge_all()
-
-        optimizer = tf.train.AdamOptimizer(learning_rate=s.lr)
-
-        if s.loss=='mse':
-            cost = tf.losses.mean_squared_error(target, pred)
-        elif s.loss=='mae':
-            cost = tf.reduce_mean(tf.abs(target - pred))
-        else:
-            raise Exception("Unrecognized loss type " + s.loss)
-        minimize = optimizer.minimize(cost)
 
     else:
         raise Exception("Unknown implementation " + s.implementation)
@@ -418,7 +367,7 @@ def run_gru(s):
 
     dp = DataProcessor()
     if s.normalization_type == 'default':
-        (meanSeq, stdSeq) = dp.normalize(sequence, s.nTrain)
+        (meanSeq, stdSeq) = dp.normalize(sequence, s.nTrain if s.cutoff_normalize else len(sequence))
 
     elif s.normalization_type == 'windowed':
         dp.windowed_normalize(sequence, columns=[0])
@@ -468,48 +417,6 @@ def run_gru(s):
             if s.stateful:
                 rnn_layer.reset_states()
 
-    elif s.implementation == "tf":
-        sess = tf.Session()
-        writer = tf.summary.FileWriter("results/", graph=sess.graph)
-        init = tf.global_variables_initializer()
-        sess.run(init)
-
-        for epoch in tqdm(range(s.epochs)):
-            the_cost, _, summ = sess.run([cost, minimize, summary], feed_dict={data: trainX, target: trainY, prob: 0.5})
-            writer.add_summary(summ, epoch)
-            if epoch % 100 == 0:
-                print the_cost
-
-        var = [v for v in tf.trainable_variables() if v.name == "dense/bias:0"]
-        print sess.run(var)
-
-    # weights = rnn.trainable_weights  # weight tensors
-    # for layer in rnn.layers:
-    #     print layer.name
-    # weights = [weight for weight in weights] # if rnn.get_layer(
-    # #weight.name[:-2].split('/')).trainable]  # filter down weights tensors to only ones which are trainable
-    # gradients = rnn.optimizer.get_gradients(rnn.model.total_loss, weights)
-    # print gradients
-    #
-    # input_tensors = [rnn.inputs[0],  # input data
-    #                  rnn.sample_weights[0],  # how much to weight each sample by
-    #                  rnn.targets[0],  # labels
-    #                  K.learning_phase(),  # train or test mode
-    #                  ]
-    #
-    # get_gradients = K.function(inputs=input_tensors, outputs=gradients)
-    #
-    # inputs = [trainX,  # X
-    #           np.ones(len(trainX)),  # sample weights
-    #           trainY,  # y
-    #           0  # learning phase in TEST mode
-    #           ]
-    # grads = get_gradients(inputs)
-    # print grads
-    # for grad in grads:
-    #     print "NAN?", np.any(np.isnan(grad))
-    # #exit(1)
-    # rnn.save_weights("weights.out")
 
 
     
@@ -520,8 +427,11 @@ def run_gru(s):
     #predictedInput[s.nTrain + s.predictionStep : len(allX)] =  rnn.predict(np.reshape(allX[s.nTrain + s.predictionStep : len(allX)], (1, 12510, x_dims)))
     latestStart = None
     do_non_lookback = True
+    latest_onego = 0
+    #buffer = s.retrain_interval / 2
+    buffer = 0
     for i in tqdm(xrange(s.nTrain + s.predictionStep, len(allX)), disable=s.max_verbosity == 0):
-        if i % s.retrain_interval == 0 and s.online:
+        if i % s.retrain_interval == 0 and s.online and i > s.nTrain + s.predictionStep + buffer:
             do_non_lookback = True
             if s.normalization_type == 'AN':
 
@@ -540,36 +450,50 @@ def run_gru(s):
                 trainX = allX[i-s.nTrain-s.predictionStep:i-s.predictionStep]
                 trainY = allY[i-s.nTrain-s.predictionStep:i-s.predictionStep]
             else:
-                trainX = allX[:i-s.predictionStep]
-                trainY = allY[:i-s.predictionStep]
+                trainX = allX[i-s.nTrain-s.predictionStep:i-s.predictionStep]
+                trainY = allY[i-s.nTrain-s.predictionStep:i-s.predictionStep]
 
             trainX = np.reshape(trainX, s.actual_input_shape_train)
             trainY = np.reshape(trainY, s.actual_output_shape_train)
             if s.implementation == "keras":
-                for _ in tqdm(range(s.epochs), disable=s.max_verbosity == 0):
-                    rnn.fit(trainX, trainY, epochs=1, batch_size=s.batch_size, verbose=0,
+                if s.reset_on_retrain:
+                    rnn = Sequential()
+                    if s.rnn_type == "lstm":
+                        rnn_layer = LSTM(s.nodes, input_shape=s.rnn_input_shape, batch_size=s.rnn_batch_size,
+                                         stateful=s.stateful, return_sequences=s.return_sequences)
+                        rnn.add(rnn_layer)
+                    elif s.rnn_type == "gru":
+                        rnn_layer = GRU(s.nodes, input_shape=s.rnn_input_shape, batch_size=s.rnn_batch_size,
+                                        stateful=s.stateful, return_sequences=s.return_sequences)
+                        rnn.add(rnn_layer)
+
+                    #rnn.add(Dropout(0.5))
+                    rnn.add(Dense(1))
+                    opt = adam(lr=s.lr, decay=0.0, epsilon=s.adam_eps)  # , clipvalue=1.)#1e-3)
+                    #opt = rmsprop(lr=s.lr)
+                    rnn.compile(loss=s.loss, optimizer=opt)
+                for _ in range(1):
+                    rnn.fit(trainX, trainY, epochs=s.epochs, batch_size=s.batch_size, verbose=2,
                             shuffle=not s.stateful)
                     if s.stateful:
                         rnn_layer.reset_states()
-            elif s.implementation == "tf":
-                for epoch in range(s.epochs):
-                    sess.run(minimize, feed_dict={data: trainX, target: trainY, prob: 0.5})
+
+
 
         if s.lookback:
             if s.implementation == "keras":
                 predictedInput[i] = rnn.predict(np.reshape(allX[i], s.predict_input_shape))
 
-            elif s.implementation == "tf":
-                predictedInput[i] = sess.run(dense, feed_dict={data: np.reshape(allX[i], s.predict_input_shape)})
         elif do_non_lookback:
             do_non_lookback = False
             up_to = min(allX.shape[0], i - (i % s.retrain_interval) + s.retrain_interval) if s.online else allX.shape[0]
             start_time = time.time()
             #print allX[0]
-            new_predicts = rnn.predict(np.reshape(allX[:up_to], (1, up_to, s.x_dims)))
+            start = 0 if s.refeed_on_retrain else latest_onego
+            new_predicts = rnn.predict(np.reshape(allX[start:up_to], (1, -1, s.x_dims))) #TODO UNMODIFY [:up_to], (1, up_to, s.x_dims)
             new_predicts = np.reshape(new_predicts, (new_predicts.shape[1],))
-            #print new_predicts[0]
-            predictedInput[i:up_to] = new_predicts[i:up_to]
+            predictedInput[i:up_to] = new_predicts[-(up_to-i):] #TODO UNMODIFY [i:up_to] FIX
+            latest_onego = up_to
 
 
 
@@ -595,25 +519,24 @@ def run_gru(s):
     #print "Last not to change:", predictedInput[-996], targetInput[-996]
     #print "First to change:", predictedInput[-995], targetInput[-995]
     dp.saveResultToFile(s.dataSet, predictedInput, targetInput, 'gru', s.predictionStep, s.max_verbosity)
-    skipTrain = s.ignore_for_error
-    from plot import computeSquareDeviation
-    squareDeviation = computeSquareDeviation(predictedInput, targetInput)
-    squareDeviation[:skipTrain] = None
-    nrmse = np.sqrt(np.nanmean(squareDeviation)) / np.nanstd(targetInput)
-    if s.max_verbosity > 0:
-        print "", s.nodes, "NRMSE {}".format(nrmse)
-    mae = np.nanmean(np.abs(targetInput-predictedInput))
-    if s.max_verbosity > 0:
-        print "MAE {}".format(mae)
-    mape = errors.get_mape(predictedInput,targetInput, skipTrain)
-    if s.max_verbosity > 0:
-            print "MAPE {}".format(mape)
-    mase = errors.get_mase(predictedInput, targetInput, np.roll(targetInput, s.season), skipTrain)
-    if s.max_verbosity > 0:
-        print "MASE {}".format(mase)
+    for ignore in s.ignore_for_error:
+        skipTrain = ignore
+        from plot import computeSquareDeviation
+        squareDeviation = computeSquareDeviation(predictedInput, targetInput)
+        squareDeviation[:skipTrain] = None
+        nrmse = np.sqrt(np.nanmean(squareDeviation)) / np.nanstd(targetInput)
+        if s.max_verbosity > 0:
+            print "", s.nodes, "NRMSE {}".format(nrmse)
+        mae = np.nanmean(np.abs(targetInput-predictedInput))
+        if s.max_verbosity > 0:
+            print "MAE {}".format(mae)
+        mape = errors.get_mape(predictedInput,targetInput, skipTrain)
+        if s.max_verbosity > 0:
+                print "MAPE {}".format(mape)
+        mase = errors.get_mase(predictedInput, targetInput, np.roll(targetInput, s.season), skipTrain)
+        if s.max_verbosity > 0:
+            print "MASE {}".format(mase)
 
-    if s.implementation == "tf":
-        sess.close()
     return mase
 
 if __name__ == "__main__":

@@ -88,3 +88,9 @@ def xnorize(W, H=1., axis=None, keepdims=False):
     Wa = _mean_abs(W, axis, keepdims)
 
     return Wa, Wb
+
+def discrete_sigmoid(x):
+
+    s = K.tanh(x)
+    s_disc = K.round(K.tanh(x) * 1024) / 1024.0
+    return s + K.stop_gradient(s_disc - s)
