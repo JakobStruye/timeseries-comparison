@@ -4,7 +4,7 @@ import sys
 import shared
 
 sys.path.append(".") #..welp
-from run_gru_tf_stateful import  GruSettings, run_gru
+from run_rnn import  GruSettings, run_gru
 
 
 settings = GruSettings()
@@ -12,7 +12,7 @@ settings.max_verbosity = 2
 settings.epochs = 100
 settings.online = False
 nodes = 20
-lr = 0.03
+lr = 0.1
 settings.nodes = nodes
 settings.batch_size = 1
 settings.lr = lr
@@ -26,10 +26,10 @@ settings.season = 48
 settings.adam_eps = 0.001
 settings.retrain_interval = 336
 settings.reset_on_retrain = True
-settings.onego_refeed_on_retrain = False
+settings.refeed_on_retrain = False
 settings.cutoff_normalize = False
-settings.nTrain = 5000
-settings.ignore_for_error = [5500,10000]
+settings.nTrain = 6000
+settings.ignore_for_error = [10000]
 settings.normalization_type = 'default'
 settings.implementation = 'keras'
 settings.rnn_type = 'lstm'

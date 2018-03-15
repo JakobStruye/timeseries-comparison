@@ -490,9 +490,9 @@ def run_gru(s):
             start_time = time.time()
             #print allX[0]
             start = 0 if s.refeed_on_retrain else latest_onego
-            new_predicts = rnn.predict(np.reshape(allX[start:up_to], (1, -1, s.x_dims))) #TODO UNMODIFY [:up_to], (1, up_to, s.x_dims)
+            new_predicts = rnn.predict(np.reshape(allX[start:up_to], (1, -1, s.x_dims)))
             new_predicts = np.reshape(new_predicts, (new_predicts.shape[1],))
-            predictedInput[i:up_to] = new_predicts[-(up_to-i):] #TODO UNMODIFY [i:up_to] FIX
+            predictedInput[i:up_to] = new_predicts[-(up_to-i):]
             latest_onego = up_to
 
 
