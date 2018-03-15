@@ -1,6 +1,6 @@
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL']='2' #Suppress build warnings
-from run_gru_tf_stateful import GruSettings, run_gru
+from run_rnn import GruSettings, run_gru
 from sys import argv
 import random
 
