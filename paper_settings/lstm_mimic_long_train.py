@@ -9,7 +9,7 @@ from run_rnn import  GruSettings, run_gru
 
 settings = GruSettings()
 settings.max_verbosity = 2
-settings.epochs = 100
+settings.epochs = 200
 settings.online = True
 nodes = 20
 lr = 0.1
@@ -24,10 +24,10 @@ settings.feature_count = 3
 settings.predictionStep = 5
 settings.season = 48
 settings.adam_eps = 0.001
-settings.retrain_interval = 2500
-settings.reset_on_retrain = False
+settings.retrain_interval = 336
+settings.reset_on_retrain = True
 settings.refeed_on_retrain = True
-settings.cutoff_normalize = True
+settings.cutoff_normalize = False
 settings.nTrain = 5000
 settings.ignore_for_error = [5500,10000]
 settings.normalization_type = 'default'
