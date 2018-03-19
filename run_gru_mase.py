@@ -40,7 +40,7 @@ settings.feature_count = int(argv[11])
 settings.lr = float(argv[5])
 settings.predictionStep = 5
 settings.season = 48
-settings.ignore_for_error = 5500
+settings.ignore_for_error = [5500]
 settings.nTrain = 5000
 settings.limit_to = 7500# if not
 settings.normalization_type = 'default'
@@ -50,7 +50,7 @@ settings.use_binary = False
 settings.stateful = False
 settings.adam_eps = float(argv[13])
 settings.refeed_on_retrain = True
-settings.reset_on_retrain = True
+settings.reset_on_retrain = False
 
 settings.finalize()
 mase = run_gru(settings)

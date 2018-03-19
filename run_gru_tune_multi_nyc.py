@@ -4,7 +4,7 @@ import threading
 import subprocess
 import time
 
-random.seed(0)
+random.seed(1)
 l = threading.Lock()
 kill = False
 
@@ -38,15 +38,16 @@ def run_and_add(results, results_closer):
         lr = 10 ** lr_log
         #lr = random.uniform(0.0001,0.001)
         #lr = 0.00077
-        lookback = random.randint(25,125)
-        #lookback = None
+        #lookback = random.randint(25,125)
+        lookback = None
         #lookback = 52
         #retrain_interval = random.randint(1000,2000)
         retrain_interval = 2000
         epochs = 300
         #epochs = random.randint(60,130)
         online = False
-        batch = 2 ** (random.randint(6,11))
+        #batch = 2 ** (random.randint(6,11))
+        batch = 1
         lb_as_features = False
         feature_count = 3
         implementation = "lstm"
