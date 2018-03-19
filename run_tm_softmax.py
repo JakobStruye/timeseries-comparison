@@ -413,11 +413,11 @@ if __name__ == "__main__":
         lr = float(argv[7])
         verbose = False
     else:
-        nTrain = 3902
+        nTrain = 4000
         batch = 1024
-        lr = 0.00475275755832
-        epochs = 670
-        epochs_retrain = 670
+        lr = 0.005
+        epochs = 650
+        epochs_retrain = 650
         verbose = True
     online = True
 
@@ -462,12 +462,12 @@ if __name__ == "__main__":
 
     data = np.reshape(np.array(data), (nTrain, total_n))
     labels = np.reshape(np.array(labels), (nTrain,buckets))
-    keras_model.fit(data, labels, epochs=epochs, batch_size=batch, verbose=verbose, validation_data=(data, labels))#, callbacks=[TensorBoard(log_dir='./logs', histogram_freq=1, write_grads=True)])
+    keras_model.fit(data, labels, epochs=epochs, batch_size=batch, verbose=verbose)#, validation_data=(data, labels))#, callbacks=[TensorBoard(log_dir='./logs', histogram_freq=1, write_grads=True)])
 
     bucketVals = buckets * [None]
 
     for i in tqdm(xrange(loop_length-5), disable=not verbose):
-        if online and i % 2500 == 0 and i > 0:
+        if online and i % 1000 == 0 and i > 0:
             data = []
             labels = []
             for j in range(i-nTrain-5, i-5):

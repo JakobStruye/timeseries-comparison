@@ -32,8 +32,8 @@ import sys
 from data_processing import DataProcessor
 import errors
 import rnn_tf
-from keras.models import Sequential
-from keras.layers import Dense, Dropout, GRU, LSTM
+from keras.models import Sequential, Model
+from keras.layers import Dense, LSTM, Dropout, GRU, Input, Multiply, Activation, Reshape
 #from recurrent import LSTM, GRU
 from keras.optimizers import adam, sgd, rmsprop
 from keras.callbacks import TensorBoard
@@ -41,7 +41,6 @@ from adaptive_normalization import AdaptiveNormalizer
 import core_discretize
 import time
 import timeit
-
 
 np.set_printoptions(suppress=True) #no scientific notation
 
@@ -315,23 +314,28 @@ def run_gru(s):
     s.print_settings()
     prob = tf.placeholder_with_default(1.0, shape=()) #Retain probability for TF dropout
 
-
     start_time = timeit.default_timer()
+
 
 
     if s.implementation == "keras":
         if s.use_binary:
             raise Exception("Binary Keras not implemented")
-        rnn = Sequential()
-        if s.rnn_type == "lstm":
-            rnn_layer = LSTM(s.nodes, input_shape=s.rnn_input_shape, batch_size=s.rnn_batch_size, stateful=s.stateful, return_sequences=s.return_sequences)
-            rnn.add(rnn_layer)
-        elif s.rnn_type == "gru":
-            rnn_layer = GRU(s.nodes, input_shape=s.rnn_input_shape, batch_size=s.rnn_batch_size,  stateful=s.stateful, return_sequences=s.return_sequences)
-            rnn.add(rnn_layer)
 
-        rnn.add(Dropout(0.5))
-        rnn.add(Dense(1))
+
+        input = Input(shape=(1, s.x_dims))
+        dense1 = Dense(s.nodes, activation='sigmoid')(input)
+        dense2 = Dense(s.nodes, activation='sigmoid')(input)
+        dense3 = Dense(s.nodes, activation='tanh')(input)
+        mult1 = Multiply()([dense2, dense3])
+        act1 = Activation('tanh')(mult1)
+        mult2 = Multiply()([dense1, act1])
+        reshape = Reshape((s.nodes,))(mult2)
+        dropout = Dropout(0.5)(reshape)
+        dense_out = Dense(1)(dropout)
+        rnn = Model(inputs=[input], outputs=[dense_out])
+
+
         opt = adam(lr=s.lr, decay=0.0, epsilon=s.adam_eps)#, clipvalue=1.)#1e-3)
         #opt = rmsprop(lr=s.lr)
         rnn.compile(loss=s.loss, optimizer=opt)
@@ -462,18 +466,17 @@ def run_gru(s):
             trainY = np.reshape(trainY, s.actual_output_shape_train)
             if s.implementation == "keras":
                 if s.reset_on_retrain:
-                    rnn = Sequential()
-                    if s.rnn_type == "lstm":
-                        rnn_layer = LSTM(s.nodes, input_shape=s.rnn_input_shape, batch_size=s.rnn_batch_size,
-                                         stateful=s.stateful, return_sequences=s.return_sequences)
-                        rnn.add(rnn_layer)
-                    elif s.rnn_type == "gru":
-                        rnn_layer = GRU(s.nodes, input_shape=s.rnn_input_shape, batch_size=s.rnn_batch_size,
-                                        stateful=s.stateful, return_sequences=s.return_sequences)
-                        rnn.add(rnn_layer)
-
-                    rnn.add(Dropout(0.5))
-                    rnn.add(Dense(1))
+                    input = Input(shape=(1, s.x_dims))
+                    dense1 = Dense(s.nodes, activation='sigmoid')(input)
+                    dense2 = Dense(s.nodes, activation='sigmoid')(input)
+                    dense3 = Dense(s.nodes, activation='tanh')(input)
+                    mult1 = Multiply()([dense2, dense3])
+                    act1 = Activation('tanh')(mult1)
+                    mult2 = Multiply()([dense1, act1])
+                    reshape = Reshape((s.nodes,))(mult2)
+                    dropout = Dropout(0.5)(reshape)
+                    dense_out = Dense(1)(dropout)
+                    rnn = Model(inputs=[input], outputs=[dense_out])
                     opt = adam(lr=s.lr, decay=0.0, epsilon=s.adam_eps)  # , clipvalue=1.)#1e-3)
                     #opt = rmsprop(lr=s.lr)
                     rnn.compile(loss=s.loss, optimizer=opt)

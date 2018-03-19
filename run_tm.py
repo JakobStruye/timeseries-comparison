@@ -336,7 +336,7 @@ if __name__ == "__main__":
     start_time = timeit.default_timer()
     print " run SP through the first %i samples %i passes " %(nMultiplePass, nTrain)
     model = runMultiplePassSPonly(df, model, nMultiplePass, nTrain)
-    model._spLearningEnabled = False
+    #model._spLearningEnabled = False
     print "pretrain time", (timeit.default_timer() - start_time)
     maxBucket = classifier_encoder.n - classifier_encoder.w + 1
     likelihoodsVecAll = np.zeros((maxBucket, len(df)))
@@ -374,11 +374,13 @@ if __name__ == "__main__":
 
     for i in tqdm(xrange(loop_length)):
         inputRecord = getInputRecord(df, predictedField, i)
+        inputRecordOld = getInputRecord(df, predictedField, i - _options.stepsAhead)
         #print inputRecord
         # tp = model._getTPRegion()
         # tm = tp.getSelf()._tfdr
         # prePredictiveCells = tm.getPredictiveCells()
         # prePredictiveColumn = np.array(list(prePredictiveCells)) / tm.cellsPerColumn
+        model.disableLearning()
 
         result = model.run(inputRecord)
         # trueBucketIndex.append(model._getClassifierInputRecord(inputRecord).bucketIndex)
@@ -409,6 +411,14 @@ if __name__ == "__main__":
         # predictedActiveColumns = np.intersect1d(prePredictiveColumn, activeColumn)
         # predictedActiveColumnsNum.append(len(predictedActiveColumns))
 
+        model.enableLearning()
+        #print "OLDGO"
+        model._getClassifierRegion().getSelf()._sdrClassifier.computeBuf()
+        #resultOld = model.run(inputRecordOld)
+        #print "OLDDONE"
+
+
+
 
         last_prediction = prediction_nstep
         prediction_nstep = \
@@ -421,6 +431,10 @@ if __name__ == "__main__":
         actual_data.append(inputRecord[predictedField])
         predict_data_ML.append(
             result.inferences['multiStepBestPredictions'][_options.stepsAhead])
+        if i == 6666:
+            print inputRecord
+            print result.inferences
+            #exit(1)
         #output.write([i], actual_data[i], predict_data_ML[i])
 
 
