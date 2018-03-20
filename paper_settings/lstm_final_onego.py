@@ -11,8 +11,8 @@ settings = GruSettings()
 settings.max_verbosity = 2
 settings.epochs = 300
 settings.online = False
-nodes = 133
-lr = 0.0211389451319
+nodes = 130
+lr = 0.02#11389451319
 settings.nodes = nodes
 settings.batch_size = 1
 settings.lr = lr
@@ -34,7 +34,7 @@ settings.normalization_type = 'default'
 settings.implementation = 'keras'
 settings.rnn_type = 'lstm'
 settings.use_binary = False
-settings.limit_to = 7500
+settings.limit_to = None
 settings.finalize()
 mase = run_gru(settings)
 

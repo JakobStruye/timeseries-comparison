@@ -492,7 +492,7 @@ def run_gru(s):
         elif do_non_lookback:
             do_non_lookback = False
             up_to = min(allX.shape[0], i - (i % s.retrain_interval) + s.retrain_interval) if s.online else allX.shape[0]
-            start_time = time.time()
+            #start_time = time.time()
             #print allX[0]
             start = 0 if s.refeed_on_retrain else latest_onego
             new_predicts = rnn.predict(np.reshape(allX[start:up_to], (1, -1, s.x_dims)))
