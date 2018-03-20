@@ -193,6 +193,7 @@ def get_gradients(model):
 
 class GruSettings:
     epochs = 75
+    epochs_retrain = None
 
     useTimeOfDay = True
     useDayOfWeek = True
@@ -247,6 +248,8 @@ class GruSettings:
 
     def finalize(self) :
         """ To be called after setting everything"""
+        if not self.epochs_retrain:
+            self.epochs_retrain = self.epochs
         if not self.nTrain:
             self.nTrain = max(self.retrain_interval * 2, self.season * 3)
             if self.max_verbosity > 0:
@@ -478,7 +481,7 @@ def run_gru(s):
                     #opt = rmsprop(lr=s.lr)
                     rnn.compile(loss=s.loss, optimizer=opt)
                 for _ in range(1):
-                    rnn.fit(trainX, trainY, epochs=s.epochs, batch_size=s.batch_size, verbose=2,
+                    rnn.fit(trainX, trainY, epochs=s.epochs_retrain, batch_size=s.batch_size, verbose=2,
                             shuffle=not s.stateful)
                     if s.stateful:
                         rnn_layer.reset_states()
