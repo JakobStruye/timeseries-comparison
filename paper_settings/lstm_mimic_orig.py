@@ -28,6 +28,7 @@ settings.retrain_interval = 336
 settings.reset_on_retrain = True
 settings.refeed_on_retrain = False
 settings.cutoff_normalize = False
+settings.use_dropout = False
 settings.nTrain = 6000
 settings.ignore_for_error = [10000]
 settings.normalization_type = 'default'
