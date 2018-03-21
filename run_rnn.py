@@ -521,8 +521,8 @@ def run_gru(s):
             predictedInput = np.array(an.do_adaptive_denormalize(predictedInput))
         if an.pruning:
             targetInput = np.delete(targetInput, an.deletes)
-
-    print "Final time", (timeit.default_timer() - start_time)
+    if s.max_verbosity > 0:
+        print "Final time", (timeit.default_timer() - start_time)
 
 
     #print "Last not to change:", predictedInput[-996], targetInput[-996]
