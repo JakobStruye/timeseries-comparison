@@ -316,8 +316,6 @@ class GruSettings:
 
 def run_gru(s):
     s.print_settings()
-    prob = tf.placeholder_with_default(1.0, shape=()) #Retain probability for TF dropout
-
 
     start_time = timeit.default_timer()
 
