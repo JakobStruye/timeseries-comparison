@@ -226,6 +226,7 @@ class GruSettings:
     implementation = "keras" #"tf" or "keras"
     rnn_type = "lstm" #"lstm" or "gru"
     use_binary = False
+    use_dropout = True
 
     reset_on_retrain = False
     refeed_on_retrain = False
@@ -331,7 +332,8 @@ def run_gru(s):
             rnn_layer = GRU(s.nodes, input_shape=s.rnn_input_shape, batch_size=s.rnn_batch_size,  stateful=s.stateful, return_sequences=s.return_sequences)
             rnn.add(rnn_layer)
 
-        rnn.add(Dropout(0.5))
+        if s.use_dropout:
+            rnn.add(Dropout(0.5))
         rnn.add(Dense(1))
         opt = adam(lr=s.lr, decay=0.0, epsilon=s.adam_eps)#, clipvalue=1.)#1e-3)
         #opt = rmsprop(lr=s.lr)
@@ -472,8 +474,8 @@ def run_gru(s):
                         rnn_layer = GRU(s.nodes, input_shape=s.rnn_input_shape, batch_size=s.rnn_batch_size,
                                         stateful=s.stateful, return_sequences=s.return_sequences)
                         rnn.add(rnn_layer)
-
-                    rnn.add(Dropout(0.5))
+                    if s.use_dropout:
+                        rnn.add(Dropout(0.5))
                     rnn.add(Dense(1))
                     opt = adam(lr=s.lr, decay=0.0, epsilon=s.adam_eps)  # , clipvalue=1.)#1e-3)
                     #opt = rmsprop(lr=s.lr)
