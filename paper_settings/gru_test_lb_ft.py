@@ -9,18 +9,18 @@ from run_rnn import  GruSettings, run_gru
 
 settings = GruSettings()
 settings.max_verbosity = 2
-settings.epochs = 300
-settings.epochs_retrain = 100
+settings.epochs = 525
+settings.epochs_retrain = 175
 settings.online = True
-nodes = 200
-lr = 0.003#231262326395
+nodes = 180
+lr = 0.0015
 settings.nodes = nodes
-settings.batch_size = 128
+settings.batch_size = 512
 settings.lr = lr
 settings.loss = 'mae'
 settings.stateful=False
-settings.lookback = 50
-settings.lookback_as_features=False
+settings.lookback = 75
+settings.lookback_as_features=True
 settings.feature_count = 3
 settings.predictionStep = 5
 settings.season = 48
@@ -34,7 +34,7 @@ settings.nTrain = 5000
 settings.ignore_for_error = [5500,10000]
 settings.normalization_type = 'default'
 settings.implementation = 'keras'
-settings.rnn_type = 'lstm'
+settings.rnn_type = 'gru'
 settings.use_binary = False
 settings.limit_to = None
 settings.finalize()

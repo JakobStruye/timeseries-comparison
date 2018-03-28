@@ -51,7 +51,7 @@ settings.stateful = False
 settings.adam_eps = float(argv[13])
 settings.refeed_on_retrain = True
 settings.reset_on_retrain = False
-settings.use_dropout = False
+settings.use_dropout = True
 
 settings.finalize()
 mase = run_gru(settings)

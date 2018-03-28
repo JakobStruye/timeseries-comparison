@@ -10,11 +10,12 @@ from run_rnn import  GruSettings, run_gru
 settings = GruSettings()
 settings.max_verbosity = 2
 settings.epochs = 300
+settings.epochs_retrain = 100
 settings.online = True
 nodes = 180
 lr = 0.0015
 settings.nodes = nodes
-settings.batch_size = 256
+settings.batch_size = 512
 settings.lr = lr
 settings.loss = 'mae'
 settings.stateful=False
