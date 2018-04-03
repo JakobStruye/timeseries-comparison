@@ -481,7 +481,7 @@ def run_gru(s):
                     #opt = rmsprop(lr=s.lr)
                     rnn.compile(loss=s.loss, optimizer=opt)
                 for _ in range(1):
-                    rnn.fit(trainX, trainY, epochs=s.epochs, batch_size=s.batch_size, verbose=2,
+                    rnn.fit(trainX, trainY, epochs=s.epochs_retrain if s.epochs_retrain else s.epochs, batch_size=s.batch_size, verbose=2,
                             shuffle=not s.stateful)
                     if s.stateful:
                         rnn_layer.reset_states()

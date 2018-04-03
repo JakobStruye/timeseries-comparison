@@ -59,6 +59,7 @@ import nupic_output
 from tqdm import tqdm
 from datetime import datetime
 from dataset_settings import *
+import timeit
 
 import pandas as pd
 import yaml
@@ -427,6 +428,7 @@ if __name__ == "__main__":
     # print enc.encode(4)
     # print enc.encode(5)
     # exit(1)
+    start_time = timeit.default_timer()
     total_n = 5
     keras_model = Sequential()
     keras_model.add(Dense(41, input_dim=total_n, activation=discrete_sigmoid))
@@ -495,7 +497,7 @@ if __name__ == "__main__":
 
             data = np.reshape(np.array(data), (nTrain, total_n))
             labels = np.reshape(np.array(labels), (nTrain, buckets))
-            keras_model.fit(data, labels, epochs=epochs_retrain, batch_size=batch, verbose=verbose)
+            keras_model.fit(data, labels, epochs=epochs_retrain, batch_size=batch, verbose=0)
         inputRecord = getInputRecord(df, predictedField, i)
         # print enc.encode(inputRecord[predictedField])
         encoded = []
@@ -585,7 +587,7 @@ if __name__ == "__main__":
 
     #dp.windowed_denormalize(predData_TM_n_step, actual_data)
 
-
+    print "Final time", (timeit.default_timer() - start_time)
     dp.saveResultToFile(dataSet, np.reshape(predData_TM_n_step, len(predData_TM_n_step)), np.reshape(actual_data, len(actual_data)), 'TM', prediction_step=_options.stepsAhead, max_verbosity=0)
     for ignore_for_error in [5500, 10000]:
     #ignore_for_error = 5500
