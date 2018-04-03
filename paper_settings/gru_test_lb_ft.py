@@ -9,8 +9,8 @@ from run_rnn import  GruSettings, run_gru
 
 settings = GruSettings()
 settings.max_verbosity = 2
-settings.epochs = 525
-settings.epochs_retrain = 175
+settings.epochs = 400
+settings.epochs_retrain = 125
 settings.online = True
 nodes = 180
 lr = 0.0015
