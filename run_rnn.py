@@ -105,8 +105,8 @@ def readDataSet(dataSet, dataSetDetailed, s):
         daysofweek = pd.Series(daysofweek, index=df.index)
         times = pd.Series(times, index=df.index)
         index = df.index
-        seq = pd.DataFrame(np.array(pd.concat([sequence], axis=1)),
-                           columns=['data'])
+        seq = pd.DataFrame(np.array(pd.concat([sequence, daysofweek, times], axis=1)),
+                           columns=['data', 'dayofweek', 'timeofday'])
     else:
         raise(' unrecognized dataset type ')
 
@@ -451,8 +451,13 @@ def run_gru(s):
                 an.remove_outliers()
                 seq_norm = an.do_adaptive_normalize()
 
+                if s.feature_count > 1:
+                    dp.normalize(sequence, s.nTrain, columns=range(1,s.feature_count))
+                    start = sequence.shape[0] - seq_norm.shape[0] - s.lookback - s.predictionStep +  1
+                    for j in range(seq_norm.shape[0]):
+                        seq_norm[j,:,1:s.feature_count] = sequence[start+j:start+j+seq_norm.shape[1], 1:s.feature_count]
                 allX = seq_norm[:, 0:-s.predictionStep]
-                allY = np.reshape(seq_norm[:, -1], (-1,))
+                allY = np.reshape(seq_norm[:, -1, 0], (-1,))
 
             if s.lookback:
                 trainX = allX[i-s.nTrain-s.predictionStep:i-s.predictionStep]

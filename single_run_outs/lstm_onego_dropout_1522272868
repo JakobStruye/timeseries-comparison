@@ -1,0 +1,222 @@
+Using TensorFlow backend.
+2018-03-28 21:34:30.207456: E tensorflow/stream_executor/cuda/cuda_driver.cc:406] failed call to cuInit: CUDA_ERROR_UNKNOWN
+RNN type: lstm
+nTrain: 5000
+lr: 0.02
+Prediction step: 5
+Epochs: 100
+Batch size: 1
+Is online: True
+Retrain: 1000
+Nodes: 130
+Lookback: None
+Lookback as features?: False
+Features: 3
+Stateful: False
+Loss: mae
+Normalization: default
+Limit to: None
+Season: 48
+Ignore for error: [5453, 9953]
+Implementation: keras
+Binary?: False
+Dataset: nyc_taxi
+Dataset detailed: None
+Reset on retrain? False
+Refeed on retrain? True
+Fixed normalization? True
+_________________________________________________________________
+Layer (type)                 Output Shape              Param #   
+=================================================================
+lstm_1 (LSTM)                (1, None, 130)            69680     
+_________________________________________________________________
+dropout_1 (Dropout)          (1, None, 130)            0         
+_________________________________________________________________
+dense_1 (Dense)              (1, None, 1)              131       
+=================================================================
+Total params: 69,811
+Trainable params: 69,811
+Non-trainable params: 0
+_________________________________________________________________
+None
+Epoch 1/100
+ - 3s - loss: 0.8173
+Epoch 2/100
+ - 2s - loss: 0.7468
+Epoch 3/100
+ - 2s - loss: 0.7034
+Epoch 4/100
+ - 2s - loss: 0.6776
+Epoch 5/100
+ - 2s - loss: 0.6441
+Epoch 6/100
+ - 2s - loss: 0.5981
+Epoch 7/100
+ - 2s - loss: 0.5580
+Epoch 8/100
+ - 2s - loss: 0.5336
+Epoch 9/100
+ - 2s - loss: 0.5427
+Epoch 10/100
+ - 2s - loss: 0.5522
+Epoch 11/100
+ - 2s - loss: 0.5240
+Epoch 12/100
+ - 2s - loss: 0.5113
+Epoch 13/100
+ - 2s - loss: 0.5069
+Epoch 14/100
+ - 2s - loss: 0.5006
+Epoch 15/100
+ - 2s - loss: 0.5060
+Epoch 16/100
+ - 2s - loss: 0.4992
+Epoch 17/100
+ - 2s - loss: 0.4985
+Epoch 18/100
+ - 2s - loss: 0.5002
+Epoch 19/100
+ - 2s - loss: 0.4889
+Epoch 20/100
+ - 2s - loss: 0.4835
+Epoch 21/100
+ - 2s - loss: 0.4700
+Epoch 22/100
+ - 2s - loss: 0.4673
+Epoch 23/100
+ - 2s - loss: 0.4648
+Epoch 24/100
+ - 2s - loss: 0.4476
+Epoch 25/100
+ - 2s - loss: 0.4279
+Epoch 26/100
+ - 2s - loss: 0.4268
+Epoch 27/100
+ - 2s - loss: 0.4080
+Epoch 28/100
+ - 2s - loss: 0.4259
+Epoch 29/100
+ - 2s - loss: 0.4212
+Epoch 30/100
+ - 2s - loss: 0.3828
+Epoch 31/100
+ - 2s - loss: 0.4007
+Epoch 32/100
+ - 2s - loss: 0.3923
+Epoch 33/100
+ - 2s - loss: 0.4019
+Epoch 34/100
+ - 2s - loss: 0.3839
+Epoch 35/100
+ - 2s - loss: 0.3651
+Epoch 36/100
+ - 2s - loss: 0.3689
+Epoch 37/100
+ - 2s - loss: 0.3711
+Epoch 38/100
+ - 2s - loss: 0.3481
+Epoch 39/100
+ - 2s - loss: 0.3558
+Epoch 40/100
+ - 2s - loss: 0.3363
+Epoch 41/100
+ - 2s - loss: 0.3394
+Epoch 42/100
+ - 2s - loss: 0.3209
+Epoch 43/100
+ - 2s - loss: 0.3422
+Epoch 44/100
+ - 2s - loss: 0.3176
+Epoch 45/100
+ - 2s - loss: 0.3208
+Epoch 46/100
+ - 2s - loss: 0.3316
+Epoch 47/100
+ - 2s - loss: 0.3328
+Epoch 48/100
+ - 2s - loss: 0.3281
+Epoch 49/100
+ - 2s - loss: 0.3329
+Epoch 50/100
+ - 3s - loss: 0.3022
+Epoch 51/100
+ - 3s - loss: 0.3171
+Epoch 52/100
+ - 3s - loss: 0.3221
+Epoch 53/100
+ - 3s - loss: 0.2928
+Epoch 54/100
+ - 4s - loss: 0.3013
+Epoch 55/100
+ - 3s - loss: 0.2982
+Epoch 56/100
+ - 3s - loss: 0.2745
+Epoch 57/100
+ - 3s - loss: 0.2924
+Epoch 58/100
+ - 3s - loss: 0.2861
+Epoch 59/100
+ - 3s - loss: 0.2903
+Epoch 60/100
+ - 3s - loss: 0.2746
+Epoch 61/100
+ - 3s - loss: 0.2572
+Epoch 62/100
+ - 3s - loss: 0.2726
+Epoch 63/100
+ - 3s - loss: 0.2991
+Epoch 64/100
+ - 3s - loss: 0.2669
+Epoch 65/100
+ - 3s - loss: 0.2461
+Epoch 66/100
+ - 3s - loss: 0.2690
+Epoch 67/100
+ - 3s - loss: 0.2728
+Epoch 68/100
+ - 3s - loss: 0.2684
+Epoch 69/100
+ - 3s - loss: 0.2573
+Epoch 70/100
+ - 3s - loss: 0.2431
+Epoch 71/100
+ - 3s - loss: 0.2578
+Epoch 72/100
+ - 3s - loss: 0.2501
+Epoch 73/100
+ - 3s - loss: 0.2588
+Epoch 74/100
+ - 3s - loss: 0.2369
+Epoch 75/100
+ - 3s - loss: 0.2401
+Epoch 76/100
+ - 3s - loss: 0.2718
+Epoch 77/100
+ - 3s - loss: 0.2403
+Epoch 78/100
+ - 3s - loss: 0.2409
+Epoch 79/100
+ - 3s - loss: 0.2713
+Epoch 80/100
+ - 3s - loss: 0.2251
+Epoch 81/100
+ - 3s - loss: 0.2508
+Epoch 82/100
+ - 3s - loss: 0.2681
+Epoch 83/100
+ - 4s - loss: 0.2198
+Epoch 84/100
+ - 3s - loss: 0.3047
+Epoch 85/100
+ - 3s - loss: 0.2290
+Epoch 86/100
+ - 3s - loss: 0.2778
+Epoch 87/100
+ - 3s - loss: 0.2480
+Epoch 88/100
+ - 3s - loss: 0.2648
+Epoch 89/100
+ - 3s - loss: 0.2282
+Epoch 90/100
+ - 4s - loss: 0.2708
+Epoch 91/100
