@@ -104,8 +104,8 @@ def readDataSet(dataSet, dataSetDetailed, s):
         daysofweek = pd.Series(daysofweek, index=df.index)
         times = pd.Series(times, index=df.index)
         index = df.index
-        seq = pd.DataFrame(np.array(pd.concat([sequence], axis=1)),
-                           columns=['data'])
+        seq = pd.DataFrame(np.array(pd.concat([sequence, daysofweek, times], axis=1)),
+                           columns=['data', 'dayofweek', 'timeofday'])
     else:
         raise(' unrecognized dataset type ')
 
@@ -390,11 +390,18 @@ def run_gru(s):
         an.do_stationary()
         an.remove_outliers()
         seq_norm = an.do_adaptive_normalize()
+        print seq_norm.shape
         if s.feature_count > 1:
             dp.normalize(sequence, s.nTrain, columns=range(1,s.feature_count))
             start = sequence.shape[0] - seq_norm.shape[0] - s.lookback - s.predictionStep +  1
             for i in range(seq_norm.shape[0]):
                 seq_norm[i,:,1:s.feature_count] = sequence[start+i:start+i+seq_norm.shape[1], 1:s.feature_count]
+        #an.do_ma('s')
+        #an.do_stationary()
+        #an.remove_outliers()
+        #seq_norm = an.do_adaptive_normalize()
+        #print seq_norm[15000,0,0]
+        #exit(1)
 
     else:
         raise Exception("Unsupported normalization type: " + s.normalization_type)
@@ -411,14 +418,15 @@ def run_gru(s):
         allX= seq_norm[:,0:-s.predictionStep]
         allY = np.reshape(seq_norm[:,-1,0], (-1,))
     predictedInput = np.full((len(allY),), np.nan) #Initialize all predictions to NaN
-
-
+    #print "TESTT", allX[15000,0,1:]
+    print "FIRST", allX[875]
     trainX = allX[:s.nTrain]
     trainY = allY[:s.nTrain]
+    #print "FIRST", trainX[0], trainY[0]
     trainX = np.reshape(trainX, s.actual_input_shape_train)
     trainY = np.reshape(trainY, s.actual_output_shape_train)
 
-
+    #print "FIRST", trainX[0], trainY[0]
     if s.implementation == "keras":
         #for _ in tqdm(range(s.epochs)):
         for _ in range(1):
@@ -443,7 +451,7 @@ def run_gru(s):
         if i % s.retrain_interval == 0 and s.online and i > s.nTrain + s.predictionStep + buffer:
             do_non_lookback = True
             if s.normalization_type == 'AN':
-
+                #print "TEST", seq_norm[15000,0,1]
                 predictedInput = np.array(an.do_adaptive_denormalize(predictedInput, therange=(i-s.retrain_interval, i)))
                 latestStart = i
                 an.set_ignore_first_n(i-s.nTrain-s.predictionStep)
@@ -451,9 +459,19 @@ def run_gru(s):
                 an.do_stationary()
                 an.remove_outliers()
                 seq_norm = an.do_adaptive_normalize()
-
+                print seq_norm[15000,0,0]
+                print seq_norm.shape
+                #exit(1)
+                #print "FIRST", seq_norm[i-s.nTrain -s.predictionStep,0]#, trainY[0]
+                #print sequence[start+i-s.nTrain-s.predictionStep:start+
+                if s.feature_count > 1:
+                    #dp.normalize(sequence, s.nTrain, columns=range(1,s.feature_count))
+                    start = sequence.shape[0] - seq_norm.shape[0] - s.lookback - s.predictionStep +  1
+                    for j in range(seq_norm.shape[0]):
+                        seq_norm[j,:,1:s.feature_count] = sequence[start+j:start+j+seq_norm.shape[1], 1:s.feature_count]
+                #print "FIRST", seq_norm[i-s.nTrain -s.predictionStep,0]#, trainY[0]
                 allX = seq_norm[:, 0:-s.predictionStep]
-                allY = np.reshape(seq_norm[:, -1], (-1,))
+                allY = np.reshape(seq_norm[:, -1,0], (-1,))
 
             if s.lookback:
                 trainX = allX[i-s.nTrain-s.predictionStep:i-s.predictionStep]
@@ -461,9 +479,14 @@ def run_gru(s):
             else:
                 trainX = allX[i-s.nTrain-s.predictionStep:i-s.predictionStep]
                 trainY = allY[i-s.nTrain-s.predictionStep:i-s.predictionStep]
-
+            #print "TESTT", allX[15000,0,:]
+            print "at", i-s.nTrain -s.predictionStep
+            print "FIRST", allX[875]#, trainY[0]
+            #exit(1)
             trainX = np.reshape(trainX, s.actual_input_shape_train)
             trainY = np.reshape(trainY, s.actual_output_shape_train)
+            #print "FIRST", trainX[0], trainY[0]
+            #exit(1)
             if s.implementation == "keras":
                 if s.reset_on_retrain:
                     input = Input(shape=(1, s.x_dims))
@@ -481,7 +504,7 @@ def run_gru(s):
                     #opt = rmsprop(lr=s.lr)
                     rnn.compile(loss=s.loss, optimizer=opt)
                 for _ in range(1):
-                    rnn.fit(trainX, trainY, epochs=s.epochs, batch_size=s.batch_size, verbose=2,
+                    rnn.fit(trainX, trainY, epochs=s.epochs_retrain, batch_size=s.batch_size, verbose=2,
                             shuffle=not s.stateful)
                     if s.stateful:
                         rnn_layer.reset_states()
