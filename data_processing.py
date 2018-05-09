@@ -35,8 +35,8 @@ class DataProcessor():
                 std = np.std(col_orig[i-self.window_size+1:i+1]) #new
 
                 #newval = np.reshape(scaler.transform(seq_2d[i:i+1]), 1)
-                if i == 9504:
-                    print mean, std, sequence[i]
+                #if i == 9504:
+                #    print mean, std, sequence[i]
                 newval = np.reshape((sequence[i, col] - mean) / std, 1) #new
 
                 sequence[i, col] = newval
@@ -96,7 +96,7 @@ class DataProcessor():
 
         outputFileName = './prediction/' + dataSet + '_' + algorithmName + '_pred.csv'
         if max_verbosity > 0:
-            print "Saving to " + './prediction/' + dataSet + '_' + algorithmName + '_pred.csv'
+            print("Saving to " + './prediction/' + dataSet + '_' + algorithmName + '_pred.csv')
         outputFile = open(outputFileName, "w")
         csvWriter = csv.writer(outputFile)
         csvWriter.writerow(
@@ -104,7 +104,7 @@ class DataProcessor():
         csvWriter.writerow(['datetime', 'float', 'float'])
         csvWriter.writerow(['', '', ''])
 
-        for i in xrange(len(predictedInput)):
+        for i in range(len(predictedInput)):
             csvWriter.writerow([i, targetInput[i], '%.13f' % predictedInput[i]])
 
         outputFile.close()

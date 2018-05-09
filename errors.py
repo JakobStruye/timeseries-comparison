@@ -73,14 +73,14 @@ if __name__ == '__main__':
         actual_rolled_seasonal[0:ignore_first_n] = np.nan
         predicted[0:ignore_first_n] = np.nan
 
-        print names[i], "MSE:", get_mse(predicted, actual)
+        #print names[i], "MSE:", get_mse(predicted, actual)
 
-        print names[i], "NRMSE:", get_nrmse(predicted, actual)
+        #print names[i], "NRMSE:", get_nrmse(predicted, actual)
 
-        print names[i], "MAE:", get_mae(predicted, actual)
+        #print names[i], "MAE:", get_mae(predicted, actual)
 
-        print names[i], "MAPE:", get_mape(predicted, actual)
+        #print names[i], "MAPE:", get_mape(predicted, actual)
 
-        print names[i], "MASE:", get_mase(predicted, actual, actual_rolled)
+        #print names[i], "MASE:", get_mase(predicted, actual, actual_rolled)
 
-        print names[i], "MASE (seasonal):", get_mase(predicted, actual, actual_rolled_seasonal)
+        #print names[i], "MASE (seasonal):", get_mase(predicted, actual, actual_rolled_seasonal)
