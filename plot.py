@@ -26,8 +26,6 @@ from matplotlib import pyplot as plt
 plt.ion()
 
 # from suite import Suite
-from run_lstm_suite import Suite
-from htmresearch.support.sequence_learning_utils import *
 import pandas as pd
 import numpy as np
 

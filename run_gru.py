@@ -370,12 +370,12 @@ def run_gru(s):
         pass
     dp.saveResultToFile(s.dataSet, predictedInput, targetInput, 'gru', s.predictionStep, s.max_verbosity)
     skipTrain = error_ignore_first[s.dataSet]
-    from plot import computeSquareDeviation
-    squareDeviation = computeSquareDeviation(predictedInput, targetInput)
-    squareDeviation[:skipTrain] = None
-    nrmse = np.sqrt(np.nanmean(squareDeviation)) / np.nanstd(targetInput)
-    if s.max_verbosity > 0:
-        print "", s.nodes, "NRMSE {}".format(nrmse)
+    #from plot import computeSquareDeviation
+    #squareDeviation = computeSquareDeviation(predictedInput, targetInput)
+    #squareDeviation[:skipTrain] = None
+    #nrmse = np.sqrt(np.nanmean(squareDeviation)) / np.nanstd(targetInput)
+    #if s.max_verbosity > 0:
+    #    print "", s.nodes, "NRMSE {}".format(nrmse)
     mae = np.nanmean(np.abs(targetInput-predictedInput))
     if s.max_verbosity > 0:
         print "MAE {}".format(mae)
@@ -384,11 +384,11 @@ def run_gru(s):
         print "MASE {}".format(mase)
     if s.dataSet in differenceSets:
         dp.saveResultToFile(s.dataSet, predictedInputNodiff, targetInputNodiff, 'gru_nodiff', s.predictionStep, s.max_verbosity)
-        squareDeviation = computeSquareDeviation(predictedInputNodiff, targetInputNodiff)
-        squareDeviation[:skipTrain] = None
-        nrmse = np.sqrt(np.nanmean(squareDeviation)) / np.nanstd(targetInputNodiff)
-        if s.max_verbosity > 0:
-            print "", s.nodes, "NRMSE {}".format(nrmse)
+        #squareDeviation = computeSquareDeviation(predictedInputNodiff, targetInputNodiff)
+        #squareDeviation[:skipTrain] = None
+        #nrmse = np.sqrt(np.nanmean(squareDeviation)) / np.nanstd(targetInputNodiff)
+        #if s.max_verbosity > 0:
+        #    print "", s.nodes, "NRMSE {}".format(nrmse)
         mae = np.nanmean(np.abs(targetInputNodiff-predictedInputNodiff))
         if s.max_verbosity > 0:
             print "MAE {}".format(mae)

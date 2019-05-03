@@ -5,7 +5,7 @@ from sys import argv
 import random
 
 settings = GruSettings()
-settings.max_verbosity = 0
+settings.max_verbosity = 1
 settings.epochs = int(argv[7])
 settings.online = True
 nodes = int(argv[3])
@@ -17,7 +17,7 @@ settings.batch_size = None
 settings.retrain_interval = retrain_interval
 settings.lr = lr
 settings.lookback = lookback
-settings.predictionStep = 50
+settings.predictionStep = 60
 settings.season = 1440
 settings.finalize()
 mase, closer_rate = run_gru(settings)
